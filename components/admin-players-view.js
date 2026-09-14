@@ -126,7 +126,6 @@ const AdminPlayersView = () => {
             <td className="px-2 py-2"><b className={`rounded px-1.5 py-0.5 capitalize ${statusBadge[p.status]}`}>{p.status}</b></td>
             <td className="whitespace-nowrap px-2 py-2">{p.team?.name || "Unassigned"}</td>
             <td className="whitespace-nowrap px-2 py-2">{p.paymentMethod ? paymentMethodLabels[p.paymentMethod] : "—"}</td>
-            <td className="max-w-[200px] truncate px-2 py-2" title={paymentDetail(p)}>{paymentDetail(p)}</td>
             <td className="whitespace-nowrap px-2 py-2">{new Date(p.createdAt).toLocaleDateString()}</td>
             <td className="whitespace-nowrap px-2 py-2">
               {p.status === "pending" && <button className="cursor-pointer rounded bg-[#76511d] px-2 py-1 text-[10px] font-bold text-[#f2d590] disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={(event) => { event.stopPropagation(); updatePlayerStatus(p._id, "approved"); }} disabled={updatingId === p._id}>{updatingId === p._id ? "..." : "Approve"}</button>}
