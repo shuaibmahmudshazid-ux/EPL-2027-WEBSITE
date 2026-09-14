@@ -1,0 +1,10 @@
+import Image from "next/image";
+import Link from "next/link";
+import { FaBell } from "react-icons/fa6";
+import TeamRegistrationForm from "../components/team-registration-form";
+import SiteFooter from "../components/site-footer";
+const navItems=["Home","About","Schedule","Teams","Registration","Contact"];
+const container="mx-auto w-[min(1560px,calc(100%-36px))] min-[781px]:w-[min(1560px,calc(100%-64px))]";
+const Navigation=()=> <header className="absolute inset-x-0 top-0 z-20 h-[72px] border-b border-white/20 bg-[#021522f5] text-white"><div className={`${container} flex h-full items-center justify-between`}><Link className="flex items-center gap-2.5" href="/"><Image className="h-[54px] w-auto" src="/epl-logo-v2.png" alt="EPL — ESDM Premier League" width={1008} height={1560} /><span><b className="block text-xl">EPL</b><small className="block text-[8px] tracking-[1px] text-[#d4a84f]">ESDM PREMIER LEAGUE</small></span></Link><nav className="hidden h-full items-center gap-10 min-[900px]:flex">{navItems.map(item=><a className={`relative grid h-full place-items-center text-sm hover:text-[#d4a84f] ${item==="Registration"?"text-[#a9d639] after:absolute after:bottom-[14px] after:h-0.5 after:w-[80px] after:bg-[#a9d639]":""}`} href={item==="Home"?"/":`/#${item.toLowerCase()}`} key={item}>{item}</a>)}</nav><a className="rounded-md bg-[#b8872f] px-5 py-3 text-[13px]" href="#updates">Get Updates <FaBell className="ml-1 inline" /></a></div></header>;
+const TeamRegistrationPage=()=> <main className="bg-[#021522] text-white"><section className="relative flex min-h-[715px] items-center overflow-hidden pt-[72px] min-[781px]:min-h-[585px] min-[1100px]:min-h-[max(800px,min(50vw,950px))]"><Image className="object-cover object-right-top" src="/cricket-stadium-desktop.png" alt="Cricket stadium" fill priority sizes="100vw"/><div className="absolute inset-0 bg-[linear-gradient(90deg,#011521ef_0%,#021522e8_48%,#02152235_100%)]"/><Navigation/><div className={`${container} relative z-10 w-full py-6 min-[1000px]:py-10`}><div className="max-w-[845px]"><TeamRegistrationForm/></div></div></section><SiteFooter/></main>;
+export default TeamRegistrationPage;

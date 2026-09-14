@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --epl-navy: #102235;
+  --epl-navy-deep: #07111d;
+  --epl-gold: #d9b56d;
+  --epl-gold-dark: #af8239;
+  --epl-ink: #172638;
+  --epl-slate: #526475;
+  --epl-line: #dbe1e7;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #f4f6f8;
+  color: var(--epl-ink);
+  font-family: Aptos, "Segoe UI Variable", "Segoe UI", sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, b, strong, button {
+  font-family: "Aptos Display", Aptos, "Segoe UI Variable", "Segoe UI", sans-serif;
+}
+
+/* A shared, low-contrast texture lets photo-led pages and data-heavy views feel
+   like parts of one considered product rather than separate screens. */
+.premium-surface {
+  background-image: radial-gradient(circle at 8% 0%, rgba(217, 181, 109, .14), transparent 27rem),
+    radial-gradient(circle at 94% 18%, rgba(60, 103, 129, .13), transparent 30rem);
+}
+
+.premium-grid {
+  background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+::selection {
+  background: var(--epl-gold);
+  color: var(--epl-navy-deep);
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease,
+    box-shadow 160ms ease, transform 160ms ease;
+}
+
+button, a { -webkit-tap-highlight-color: transparent; }
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--epl-gold) 72%, white);
+  outline-offset: 3px;
+}
