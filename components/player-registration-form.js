@@ -11,14 +11,12 @@ const Input = ({ label, name, type = "text", required = true, ...props }) => <la
 
 const idStatusText = { checking: "Checking availability...", available: "Student ID is available.", taken: "This Student ID is already registered.", invalid: "Student ID must be exactly 7 digits." };
 const idStatusClass = { checking: "text-[#c5ccd1]", available: "text-[#e4bf72]", taken: "text-red-300", invalid: "text-red-300" };
-const MAX_PHOTO_SIZE = 3 * 1024 * 1024;
 
 const PlayerRegistrationForm = () => {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("idle");
   const [photoPreview, setPhotoPreview] = useState(null);
-  const [photoError, setPhotoError] = useState("");
   const [idStatus, setIdStatus] = useState(null);
   const idCheckTimer = useRef(null);
 
@@ -27,13 +25,6 @@ const PlayerRegistrationForm = () => {
 
   const handlePhotoChange = (event) => {
     const file = event.target.files?.[0];
-    if (file && file.size > MAX_PHOTO_SIZE) {
-      setPhotoError("Photo must be smaller than 3MB. Please choose a smaller file.");
-      event.target.value = "";
-      setPhotoPreview((previous) => { if (previous) URL.revokeObjectURL(previous); return null; });
-      return;
-    }
-    setPhotoError("");
     setPhotoPreview((previous) => { if (previous) URL.revokeObjectURL(previous); return file ? URL.createObjectURL(file) : null; });
   };
 
@@ -61,7 +52,6 @@ const PlayerRegistrationForm = () => {
     const registrationNumber = data.get("registrationNumber").replace(/\D/g, "");
     const categoriesSelected = data.getAll("categories[]");
     const photo = data.get("photo");
-    if (photo instanceof File && photo.size > MAX_PHOTO_SIZE) return setMessage("Photo must be smaller than 3MB. Please choose a smaller file.");
     if (phone.length !== 11) return setMessage("Phone number must contain exactly 11 digits.");
     if (playerId.length !== 7) return setMessage("Student ID must be exactly 7 digits.");
     if (registrationNumber.length !== 5) return setMessage("Registration number must be exactly 5 digits.");
@@ -84,10 +74,9 @@ const PlayerRegistrationForm = () => {
         <span className="relative flex h-[272px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-[#d4a84f] bg-[#031320]/75 text-center">
           {photoPreview
             ? <img className="absolute inset-0 size-full object-cover" src={photoPreview} alt="Selected player" />
-            : <><FaUpload className="text-5xl text-[#d4a84f]" /><strong className="mt-4">Upload Photo</strong><small className="mt-2 px-3 text-xs text-[#abb3b9]">JPG, PNG (Max 3MB)</small><small className="mt-1 px-3 text-xs text-[#abb3b9]">Use a 3:4 (portrait) or 1:1 (square) photo for the best result.</small><small className="mt-1 px-3 text-xs text-[#d4a84f]">This photo will be shown during the auction</small></>}
+            : <><FaUpload className="text-5xl text-[#d4a84f]" /><strong className="mt-4">Upload Photo</strong><small className="mt-2 px-3 text-xs text-[#abb3b9]">JPG or PNG</small><small className="mt-1 px-3 text-xs text-[#d4a84f]">This photo will be shown during the auction</small></>}
           <input className="sr-only" type="file" name="photo" accept="image/png,image/jpeg" onChange={handlePhotoChange} required />
         </span>
-        {photoError && <small className="mt-1.5 block text-xs text-red-300">{photoError}</small>}
       </label>
       <div className="grid gap-5 min-[680px]:grid-cols-2">
         <Input label="FULL NAME" name="fullName" placeholder="Enter full name" />

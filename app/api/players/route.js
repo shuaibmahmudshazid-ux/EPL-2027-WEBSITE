@@ -24,7 +24,7 @@ export const POST = async (request) => {
     if (!/^\d{7}$/.test(playerId)) return Response.json({ error: "Student ID must be exactly 7 digits." }, { status: 400 });
     if (!/^\d{5}$/.test(registrationNumber)) return Response.json({ error: "Registration number must be exactly 5 digits." }, { status: 400 });
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return Response.json({ error: "Enter a valid email address." }, { status: 400 });
-    if (!["image/jpeg", "image/png"].includes(photo.type) || photo.size > 3 * 1024 * 1024) return Response.json({ error: "Photo must be a JPG or PNG file smaller than 3MB." }, { status: 400 });
+    if (!["image/jpeg", "image/png"].includes(photo.type)) return Response.json({ error: "Photo must be a JPG or PNG file." }, { status: 400 });
     await connectToDatabase();
     const existing = await Player.findOne({ $or: [{ playerId }, ...(email ? [{ email }] : [])] }).lean();
     if (existing) return Response.json({ error: existing.playerId === playerId ? "This Student ID is already registered." : "This email is already registered." }, { status: 409 });
