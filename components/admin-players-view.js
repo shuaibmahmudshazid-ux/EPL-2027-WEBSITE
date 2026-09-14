@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { FaMagnifyingGlass, FaXmark } from "react-icons/fa6";
 
 const statusBadge = { pending: "bg-[#856406] text-yellow-200", approved: "bg-[#76511d] text-[#f2d590]", rejected: "bg-[#7a1f1f] text-[#ff9d9d]" };
-const paymentDetailLabel = { bkash: "Transaction ID", nagad: "Transaction ID", rocket: "Transaction ID", cash: "Cash Given To", other: "Payment Details" };
 
 const DetailRow = ({ label, value }) => <div className="border-b border-white/10 py-2"><p className="text-[10px] font-bold uppercase text-[#8b979d]">{label}</p><p className="mt-0.5 text-sm">{value || "—"}</p></div>;
 
@@ -29,16 +28,13 @@ const PlayerDetailModal = ({ player, onClose }) => <div className="fixed inset-0
       <DetailRow label="Category" value={player.categories?.join(", ")} />
       <DetailRow label="Team" value={player.team?.name || "Unassigned"} />
       <DetailRow label="Registered On" value={new Date(player.createdAt).toLocaleString()} />
-      <DetailRow label="Payment Method" value={player.paymentMethod ? paymentMethodLabels[player.paymentMethod] : null} />
-      {player.paymentMethod && <DetailRow label={paymentDetailLabel[player.paymentMethod]} value={paymentDetail(player)} />}
     </div>
   </div>
 </div>;
 const statuses = ["pending", "approved", "rejected"];
-const paymentMethodLabels = { bkash: "bKash", nagad: "Nagad", rocket: "Rocket", cash: "Cash", other: "Other" };
 const paymentDetail = (p) => p.transactionId || p.cashReceivedBy || p.paymentNote || "—";
 const selectClass = "rounded border border-white/25 bg-[#02121f] px-3 py-2 text-xs text-white";
-const columns = ["#", "Photo", "Full Name", "Phone", "Student ID", "Reg. Number", "Email", "Session", "Category", "Status", "Team", "Payment", "Payment Info", "Registered", "Actions"];
+const columns = ["#", "Photo", "Full Name", "Phone", "Student ID", "Reg. Number", "Email", "Session", "Category", "Status", "Team", "Registered", "Actions"];
 
 const AdminPlayersView = () => {
   const [players, setPlayers] = useState([]);
@@ -49,7 +45,6 @@ const AdminPlayersView = () => {
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
   const [team, setTeam] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
@@ -71,20 +66,19 @@ const AdminPlayersView = () => {
   const sessions = useMemo(() => [...new Set(players.map((p) => p.session))].sort(), [players]);
   const categoryOptions = useMemo(() => [...new Set(players.flatMap((p) => p.categories))].sort(), [players]);
   const teamOptions = useMemo(() => [...new Set(players.map((p) => p.team?.name).filter(Boolean))].sort(), [players]);
-  const hasFilters = search || session || category || status || team || paymentMethod;
+  const hasFilters = search || session || category || status || team;
 
   const filtered = useMemo(() => players.filter((p) => {
     const q = search.trim().toLowerCase();
-    const matchesSearch = !q || [p.fullName, p.playerId, p.registrationNumber, p.phone, p.email, p.transactionId].some((v) => v?.toLowerCase().includes(q));
+    const matchesSearch = !q || [p.fullName, p.playerId, p.registrationNumber, p.phone, p.email].some((v) => v?.toLowerCase().includes(q));
     const matchesSession = !session || p.session === session;
     const matchesCategory = !category || p.categories.includes(category);
     const matchesStatus = !status || p.status === status;
     const matchesTeam = !team || (team === "__unassigned" ? !p.team : p.team?.name === team);
-    const matchesPayment = !paymentMethod || p.paymentMethod === paymentMethod;
-    return matchesSearch && matchesSession && matchesCategory && matchesStatus && matchesTeam && matchesPayment;
-  }), [players, search, session, category, status, team, paymentMethod]);
+    return matchesSearch && matchesSession && matchesCategory && matchesStatus && matchesTeam;
+  }), [players, search, session, category, status, team]);
 
-  const clearFilters = () => { setSearch(""); setSession(""); setCategory(""); setStatus(""); setTeam(""); setPaymentMethod(""); };
+  const clearFilters = () => { setSearch(""); setSession(""); setCategory(""); setStatus(""); setTeam(""); };
 
   const updatePlayerStatus = async (id, status) => {
     setUpdatingId(id);
@@ -111,7 +105,6 @@ const AdminPlayersView = () => {
       <select className={selectClass} value={category} onChange={(event) => setCategory(event.target.value)}><option value="">All Categories</option>{categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}</select>
       <select className={selectClass} value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All Statuses</option>{statuses.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select>
       <select className={selectClass} value={team} onChange={(event) => setTeam(event.target.value)}><option value="">All Teams</option><option value="__unassigned">Unassigned</option>{teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}</select>
-      <select className={selectClass} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="">All Payment Methods</option>{Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
       {hasFilters && <button className="rounded border border-white/25 px-3 py-2 text-xs" onClick={clearFilters} type="button">Clear Filters</button>}
     </div>
     <p className="mb-2 text-xs text-[#d4a84f]">{loading ? "Loading players..." : `Showing ${filtered.length} of ${players.length} players`}</p>

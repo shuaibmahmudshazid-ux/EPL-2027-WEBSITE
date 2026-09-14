@@ -11,13 +11,7 @@ const Input = ({ label, name, type = "text", required = true, ...props }) => <la
 
 const idStatusText = { checking: "Checking availability...", available: "Student ID is available.", taken: "This Student ID is already registered.", invalid: "Student ID must be exactly 7 digits." };
 const idStatusClass = { checking: "text-[#c5ccd1]", available: "text-[#e4bf72]", taken: "text-red-300", invalid: "text-red-300" };
-const paymentMethods = [{ value: "bkash", label: "bKash" }, { value: "nagad", label: "Nagad" }, { value: "rocket", label: "Rocket" }, { value: "cash", label: "Cash" }, { value: "other", label: "Other" }];
 const MAX_PHOTO_SIZE = 3 * 1024 * 1024;
-const paymentInstructions = {
-  bkash: { text: "Send Money (100 Tk) to this bKash number:", number: "01810068119" },
-  nagad: { text: "Send Money (100 Tk) to this Nagad number:", number: "01810068119" },
-  rocket: { text: "Send Money (100 Tk) to this Rocket number:", number: "01768899941" },
-};
 
 const PlayerRegistrationForm = () => {
   const router = useRouter();
@@ -26,7 +20,6 @@ const PlayerRegistrationForm = () => {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [photoError, setPhotoError] = useState("");
   const [idStatus, setIdStatus] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState("");
   const idCheckTimer = useRef(null);
 
   useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
@@ -74,10 +67,6 @@ const PlayerRegistrationForm = () => {
     if (registrationNumber.length !== 5) return setMessage("Registration number must be exactly 5 digits.");
     if (idStatus === "taken") return setMessage("This Student ID is already registered.");
     if (!categoriesSelected.length) return setMessage("Select a category.");
-    if (!paymentMethod) return setMessage("Select a payment method.");
-    if (["bkash", "nagad", "rocket"].includes(paymentMethod) && !data.get("transactionId").trim()) return setMessage("Enter the transaction ID.");
-    if (paymentMethod === "cash" && !data.get("cashReceivedBy").trim()) return setMessage("Enter who you gave the cash to.");
-    if (paymentMethod === "other" && !data.get("paymentNote").trim()) return setMessage("Describe how you made the payment.");
     setStatus("loading"); setMessage("");
     try {
       const response = await fetch("/api/players", { method: "POST", body: data });
@@ -112,18 +101,11 @@ const PlayerRegistrationForm = () => {
         <label><span className="mb-2 block text-sm font-bold">SESSION</span><select className={fieldClass} name="session" required><option value="">Select session</option>{sessions.map(session => <option key={session}>{session}</option>)}</select></label>
         <Input label="EMAIL" name="email" type="email" required={false} placeholder="Enter email address" />
         <fieldset className="min-[680px]:col-span-2"><legend className="mb-2 text-sm font-bold">CATEGORY</legend><div className="grid grid-cols-2 gap-2 rounded-lg border border-[#d4a84f]/70 bg-[#031320]/80 p-3">{categories.map(category => <label className="flex cursor-pointer items-center gap-2 text-xs" key={category}><input className="size-4 accent-[#d4a84f]" type="radio" name="categories[]" value={category} required />{category}</label>)}</div></fieldset>
-        <fieldset className="min-[680px]:col-span-2"><legend className="mb-2 text-sm font-bold">PAYMENT INFORMATION</legend><div className="grid gap-4 rounded-lg border border-[#d4a84f]/70 bg-[#031320]/80 p-3 min-[680px]:grid-cols-2">
-          <label className="block"><span className="mb-2 block text-sm font-bold">PAYMENT METHOD</span><select className={fieldClass} name="paymentMethod" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} required><option value="">Select payment method</option>{paymentMethods.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select></label>
-          {paymentInstructions[paymentMethod] && <p className="block rounded-lg border border-[#d4a84f]/50 bg-[#02121f]/70 px-4 py-3 text-xs text-[#c5ccd1] min-[680px]:col-span-2">{paymentInstructions[paymentMethod].text} <b className="text-[#d4a84f]">{paymentInstructions[paymentMethod].number}</b></p>}
-          {["bkash", "nagad", "rocket"].includes(paymentMethod) && <Input label="TRANSACTION ID" name="transactionId" placeholder="Enter transaction ID" />}
-          {paymentMethod === "cash" && <label className="block min-[680px]:col-span-2"><span className="mb-2 block text-sm font-bold">WHO DID YOU GIVE THE CASH(TAKA) TO?</span><textarea className="min-h-24 w-full rounded-lg border border-white/45 bg-[#031320]/80 px-4 py-3 text-sm text-white outline-none placeholder:text-[#a2aab1] focus:border-[#d4a84f]" name="cashReceivedBy" placeholder="Name and details of the person you paid (e.g., batch CR)" required /></label>}
-          {paymentMethod === "other" && <label className="block min-[680px]:col-span-2"><span className="mb-2 block text-sm font-bold">PAYMENT DETAILS</span><textarea className="min-h-24 w-full rounded-lg border border-white/45 bg-[#031320]/80 px-4 py-3 text-sm text-white outline-none placeholder:text-[#a2aab1] focus:border-[#d4a84f]" name="paymentNote" placeholder="Describe how you made the payment (e.g., batch CR)" required /></label>}
-        </div></fieldset>
       </div>
     </div>
     <div className="mt-8 flex flex-wrap gap-4 border-t border-white/10 pt-6">
       <button className="flex cursor-pointer items-center justify-center gap-2 bg-[#d9b56d] px-8 py-4 text-sm font-bold tracking-[.08em] text-[#07111d] hover:bg-[#ecd096] disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={status === "loading"}>{status === "loading" && <FaSpinner className="animate-spin" />}{status === "loading" ? "REGISTERING..." : "REGISTER PLAYER"}</button>
-      <button className="cursor-pointer border border-white/30 px-8 py-4 text-sm font-bold tracking-[.08em] hover:border-[#d9b56d]" type="reset" onClick={() => { setMessage(""); setStatus("idle"); setIdStatus(null); setPaymentMethod(""); setPhotoPreview((previous) => { if (previous) URL.revokeObjectURL(previous); return null; }); }}>RESET</button>
+      <button className="cursor-pointer border border-white/30 px-8 py-4 text-sm font-bold tracking-[.08em] hover:border-[#d9b56d]" type="reset" onClick={() => { setMessage(""); setStatus("idle"); setIdStatus(null); setPhotoPreview((previous) => { if (previous) URL.revokeObjectURL(previous); return null; }); }}>RESET</button>
     </div>
     {message && <p className="mt-4 flex items-center gap-2 text-sm text-red-300"><FaCircleCheck />{message}</p>}
     <p className="mt-4 text-xs text-[#c5ccd1]"><FaImage className="mr-2 inline text-[#d4a84f]" />Your information is secure and will only be used for EPL - ESDM Premier League.</p>

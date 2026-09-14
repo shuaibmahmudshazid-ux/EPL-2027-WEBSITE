@@ -19,21 +19,16 @@ export const POST = async (request) => {
   try {
     const formData = await request.formData();
     const fullName = formData.get("fullName")?.trim(); const phone = formData.get("phone")?.trim(); const playerId = formData.get("playerId")?.trim(); const registrationNumber = formData.get("registrationNumber")?.trim(); const email = formData.get("email")?.trim().toLowerCase(); const session = formData.get("session"); const categories = formData.getAll("categories[]"); const photo = formData.get("photo");
-    const paymentMethod = formData.get("paymentMethod")?.trim(); const transactionId = formData.get("transactionId")?.trim(); const cashReceivedBy = formData.get("cashReceivedBy")?.trim(); const paymentNote = formData.get("paymentNote")?.trim();
     if (!fullName || !phone || !playerId || !registrationNumber || !session || !categories.length || !(photo instanceof File)) return Response.json({ error: "Complete all required fields and upload a photo." }, { status: 400 });
     if (!/^\d{11}$/.test(phone)) return Response.json({ error: "Phone number must contain exactly 11 digits." }, { status: 400 });
     if (!/^\d{7}$/.test(playerId)) return Response.json({ error: "Student ID must be exactly 7 digits." }, { status: 400 });
     if (!/^\d{5}$/.test(registrationNumber)) return Response.json({ error: "Registration number must be exactly 5 digits." }, { status: 400 });
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return Response.json({ error: "Enter a valid email address." }, { status: 400 });
     if (!["image/jpeg", "image/png"].includes(photo.type) || photo.size > 3 * 1024 * 1024) return Response.json({ error: "Photo must be a JPG or PNG file smaller than 3MB." }, { status: 400 });
-    if (!["bkash", "nagad", "rocket", "cash", "other"].includes(paymentMethod)) return Response.json({ error: "Select a valid payment method." }, { status: 400 });
-    if (["bkash", "nagad", "rocket"].includes(paymentMethod) && !transactionId) return Response.json({ error: "Transaction ID is required for this payment method." }, { status: 400 });
-    if (paymentMethod === "cash" && !cashReceivedBy) return Response.json({ error: "Enter who you gave the cash to." }, { status: 400 });
-    if (paymentMethod === "other" && !paymentNote) return Response.json({ error: "Describe how you made the payment." }, { status: 400 });
     await connectToDatabase();
     const existing = await Player.findOne({ $or: [{ playerId }, ...(email ? [{ email }] : [])] }).lean();
     if (existing) return Response.json({ error: existing.playerId === playerId ? "This Student ID is already registered." : "This email is already registered." }, { status: 409 });
-    const uploaded = await uploadImage(photo, "epl/player-photos"); const player = await Player.create({ fullName, phone, playerId, registrationNumber, email: email || undefined, session, categories, photoUrl: uploaded.secure_url, paymentMethod, transactionId: transactionId || undefined, cashReceivedBy: cashReceivedBy || undefined, paymentNote: paymentNote || undefined });
+    const uploaded = await uploadImage(photo, "epl/player-photos"); const player = await Player.create({ fullName, phone, playerId, registrationNumber, email: email || undefined, session, categories, photoUrl: uploaded.secure_url });
     if (email) { try { await sendRegistrationEmail({ to: email, name: fullName, registrationType: "Player", reference: player.playerId }); } catch (error) { console.error("Registration email failed", error); } }
     return Response.json({ player }, { status: 201 });
   } catch (error) { const status = error?.code === 11000 ? 409 : 500; return Response.json({ error: status === 409 ? "Student ID or email already exists." : "Unable to create player registration." }, { status }); }
