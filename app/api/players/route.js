@@ -29,7 +29,11 @@ export const POST = async (request) => {
     const existing = await Player.findOne({ $or: [{ playerId }, ...(email ? [{ email }] : [])] }).lean();
     if (existing) return Response.json({ error: existing.playerId === playerId ? "This Student ID is already registered." : "This email is already registered." }, { status: 409 });
     const uploaded = await uploadImage(photo, "epl/player-photos"); const player = await Player.create({ fullName, phone, playerId, registrationNumber, email: email || undefined, session, categories, photoUrl: uploaded.secure_url });
-    if (email) { try { await sendRegistrationEmail({ to: email, name: fullName, registrationType: "Player", reference: player.playerId }); } catch (error) { console.error("Registration email failed", error); } }
+    if (email && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) { try { await sendRegistrationEmail({ to: email, name: fullName, registrationType: "Player", reference: player.playerId }); } catch (error) { console.error("Registration email failed", error); } }
     return Response.json({ player }, { status: 201 });
-  } catch (error) { const status = error?.code === 11000 ? 409 : 500; return Response.json({ error: status === 409 ? "Student ID or email already exists." : "Unable to create player registration." }, { status }); }
+  } catch (error) {
+    console.error("Player registration failed", error);
+    const status = error?.code === 11000 ? 409 : 500;
+    return Response.json({ error: status === 409 ? "Student ID or email already exists." : "Unable to create player registration." }, { status });
+  }
 };

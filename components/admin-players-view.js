@@ -32,7 +32,6 @@ const PlayerDetailModal = ({ player, onClose }) => <div className="fixed inset-0
   </div>
 </div>;
 const statuses = ["pending", "approved", "rejected"];
-const paymentDetail = (p) => p.transactionId || p.cashReceivedBy || p.paymentNote || "—";
 const selectClass = "rounded border border-white/25 bg-[#02121f] px-3 py-2 text-xs text-white";
 const columns = ["#", "Photo", "Full Name", "Phone", "Student ID", "Reg. Number", "Email", "Session", "Category", "Status", "Team", "Registered", "Actions"];
 
@@ -125,7 +124,6 @@ const AdminPlayersView = () => {
             <td className="whitespace-nowrap px-2 py-2">{p.categories.join(", ")}</td>
             <td className="px-2 py-2"><b className={`rounded px-1.5 py-0.5 capitalize ${statusBadge[p.status]}`}>{p.status}</b></td>
             <td className="whitespace-nowrap px-2 py-2">{p.team?.name || "Unassigned"}</td>
-            <td className="whitespace-nowrap px-2 py-2">{p.paymentMethod ? paymentMethodLabels[p.paymentMethod] : "—"}</td>
             <td className="whitespace-nowrap px-2 py-2">{new Date(p.createdAt).toLocaleDateString()}</td>
             <td className="whitespace-nowrap px-2 py-2">
               {p.status === "pending" && <button className="cursor-pointer rounded bg-[#76511d] px-2 py-1 text-[10px] font-bold text-[#f2d590] disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={(event) => { event.stopPropagation(); updatePlayerStatus(p._id, "approved"); }} disabled={updatingId === p._id}>{updatingId === p._id ? "..." : "Approve"}</button>}
