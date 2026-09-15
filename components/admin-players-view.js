@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FaMagnifyingGlass, FaXmark } from "react-icons/fa6";
+import { FaMagnifyingGlass, FaTrash, FaXmark } from "react-icons/fa6";
 
 const statusBadge = { pending: "bg-[#856406] text-yellow-200", approved: "bg-[#76511d] text-[#f2d590]", rejected: "bg-[#7a1f1f] text-[#ff9d9d]" };
 
@@ -45,6 +45,7 @@ const AdminPlayersView = () => {
   const [status, setStatus] = useState("");
   const [team, setTeam] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   useEffect(() => {
@@ -93,6 +94,24 @@ const AdminPlayersView = () => {
     }
   };
 
+  const deletePlayer = async (player) => {
+    if (!window.confirm(`Delete ${player.fullName}'s registration? This cannot be undone.`)) return;
+
+    setDeletingId(player._id);
+    setError("");
+    try {
+      const response = await fetch(`/api/players/${player._id}`, { method: "DELETE" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      setPlayers((current) => current.filter((currentPlayer) => currentPlayer._id !== player._id));
+      setSelectedPlayer((current) => current?._id === player._id ? null : current);
+    } catch (err) {
+      setError(err.message || "Unable to delete player.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return <section className="rounded-lg border border-[#b8a18055] bg-[#031827]/90 p-4 shadow-lg">
     <h2 className="mb-4 flex items-center gap-2 font-sans font-bold text-sm tracking-wide"><i className="size-2 rounded-full bg-[#c7963b]" />ALL PLAYERS</h2>
     <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -129,6 +148,7 @@ const AdminPlayersView = () => {
               {p.status === "pending" && <button className="cursor-pointer rounded bg-[#76511d] px-2 py-1 text-[10px] font-bold text-[#f2d590] disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={(event) => { event.stopPropagation(); updatePlayerStatus(p._id, "approved"); }} disabled={updatingId === p._id}>{updatingId === p._id ? "..." : "Approve"}</button>}
               {p.status === "approved" && <button className="cursor-pointer rounded bg-[#7a1f1f] px-2 py-1 text-[10px] font-bold text-[#ff9d9d] disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={(event) => { event.stopPropagation(); updatePlayerStatus(p._id, "pending"); }} disabled={updatingId === p._id}>{updatingId === p._id ? "..." : "Cancel Approval"}</button>}
               {p.status === "rejected" && "—"}
+              <button className="ml-1 inline-flex cursor-pointer items-center gap-1 rounded bg-[#7a1f1f] px-2 py-1 text-[10px] font-bold text-[#ff9d9d] disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={(event) => { event.stopPropagation(); deletePlayer(p); }} disabled={deletingId === p._id} aria-label={`Delete ${p.fullName}`}>{deletingId === p._id ? "Deleting..." : <><FaTrash /> Delete</>}</button>
             </td>
           </tr>)}
           {!loading && !filtered.length && <tr><td className="px-2 py-6 text-center text-[#8b979d]" colSpan={columns.length}>No players match the selected filters.</td></tr>}
