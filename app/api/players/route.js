@@ -32,8 +32,15 @@ export const POST = async (request) => {
     if (email && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) { try { await sendRegistrationEmail({ to: email, name: fullName, registrationType: "Player", reference: player.playerId }); } catch (error) { console.error("Registration email failed", error); } }
     return Response.json({ player }, { status: 201 });
   } catch (error) {
-    console.error("Player registration failed", error);
-    const status = error?.code === 11000 ? 409 : 500;
-    return Response.json({ error: status === 409 ? "Student ID or email already exists." : "Unable to create player registration." }, { status });
-  }
+  console.error("PLAYER REGISTRATION ERROR:", error);
+
+  return Response.json(
+    {
+      error: "Unable to create player registration.",
+      debug: error?.message || "Unknown server error",
+      code: error?.code || null,
+    },
+    { status: 500 }
+  );
+}
 };
