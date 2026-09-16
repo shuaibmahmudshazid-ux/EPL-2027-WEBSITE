@@ -165,12 +165,14 @@ const AdminPlayersView = () => {
 
   useEffect(() => {
     const initialLoad = window.setTimeout(loadPlayers, 0);
+    const refreshInterval = window.setInterval(loadPlayers, 15000);
 
     const refreshOnFocus = () => loadPlayers();
     window.addEventListener("focus", refreshOnFocus);
 
     return () => {
       window.clearTimeout(initialLoad);
+      window.clearInterval(refreshInterval);
       window.removeEventListener("focus", refreshOnFocus);
     };
   }, []);

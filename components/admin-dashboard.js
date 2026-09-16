@@ -34,9 +34,9 @@ useEffect(()=>{
 
 useEffect(()=>{
   if(!session) return;
-  (async()=>{
+  const loadStats=async()=>{
     try{
-      const [playersResponse,teamsResponse]=await Promise.all([fetch("/api/players"),fetch("/api/teams")]);
+      const [playersResponse,teamsResponse]=await Promise.all([fetch("/api/players",{cache:"no-store"}),fetch("/api/teams",{cache:"no-store"})]);
       const playersResult=await playersResponse.json();
       const teamsResult=await teamsResponse.json();
       const players=playersResponse.ok?playersResult.players:[];
@@ -45,7 +45,10 @@ useEffect(()=>{
     }catch{
       setStats({totalPlayers:"—",totalTeams:"—",pendingPlayers:"—"});
     }
-  })();
+  };
+  loadStats();
+  const refreshInterval=window.setInterval(loadStats,15000);
+  return()=>window.clearInterval(refreshInterval);
 },[session]);
 
 const logout=async()=>{
