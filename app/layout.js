@@ -1,8 +1,13 @@
 import "./globals.css";
+
 export const metadata = {
   title: "EPL | ESDM Premier League",
   description: "University cricket tournament of the ESDM Department.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
+
 const RootLayout = ({ children }) => {
   return (
     <html lang="en">
