@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FaMagnifyingGlass,
+  FaRotateRight,
   FaTrash,
   FaXmark,
 } from "react-icons/fa6";
@@ -140,7 +141,9 @@ const AdminPlayersView = () => {
       setLoading(true);
       setError("");
 
-      const response = await fetch("/api/players");
+      const response = await fetch("/api/players", {
+        cache: "no-store",
+      });
 
       const result = await response.json();
 
@@ -161,7 +164,15 @@ const AdminPlayersView = () => {
   };
 
   useEffect(() => {
-    loadPlayers();
+    const initialLoad = window.setTimeout(loadPlayers, 0);
+
+    const refreshOnFocus = () => loadPlayers();
+    window.addEventListener("focus", refreshOnFocus);
+
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.removeEventListener("focus", refreshOnFocus);
+    };
   }, []);
 
   // =========================
@@ -476,6 +487,17 @@ const AdminPlayersView = () => {
             Clear Filters
           </button>
         )}
+
+        <button
+          aria-label="Refresh players"
+          className="grid size-9 place-items-center rounded border border-white/25 text-[#d4a84f] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={loading}
+          onClick={loadPlayers}
+          title="Refresh players"
+          type="button"
+        >
+          <FaRotateRight className={loading ? "animate-spin" : ""} />
+        </button>
       </div>
 
       <p className="mb-2 text-xs text-[#d4a84f]">
