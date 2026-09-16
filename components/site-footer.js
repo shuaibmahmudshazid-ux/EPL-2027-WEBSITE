@@ -50,8 +50,7 @@ const SiteFooter = () => (
           ⌕ &nbsp;01303526267
         </p>
         <p className="text-[11px] leading-[1.7]">
-          ⌖ &nbsp;FACULTY OF ENVIRONMENTAL SCIENCE AND DISASTER MANAGEMENT,
-          <br />　PSTU 
+          ⌖ &nbsp;FACULTY OF ENVIRONMENTAL SCIENCE AND DISASTER MANAGEMENT,PSTU
         </p>
       </div>
 

@@ -42,7 +42,7 @@ const Hero = () => {
             Organized by
             <Image
               className="h-[42px] w-auto min-[781px]:h-[50px] min-[1100px]:h-16"
-              src="/nirban-logo.png"
+              src="/addyanta-14-logo.png"
               alt="নির্বান ২০"
               width={770}
               height={429}
