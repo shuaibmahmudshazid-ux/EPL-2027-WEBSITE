@@ -386,7 +386,7 @@ const AdminDashboard = () => {
             <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
             System Status: All Systems Operational
           </span>
-          <span>© 2027 EPL - ESDM Premier League. All Rights Reserved.</span>
+          <span>© EPL 2027 ESDM Premier League</span>
         </footer>
       </main>
 

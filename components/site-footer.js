@@ -218,7 +218,7 @@ const SiteFooter = () => (
       <div
         className={`${container} flex flex-col items-center gap-2 text-center min-[781px]:flex-row min-[781px]:justify-between`}
       >
-        <span>© 2027 EPL - ESDM Premier League. All Rights Reserved.</span>
+        <span>© EPL 2027 ESDM Premier League</span>
         <span className="text-[#d4a84f] font-semibold">
           Play Fair. Play Hard. Play Together.
         </span>

@@ -17,7 +17,7 @@ const Navigation = () => {
           <div className="flex items-center gap-2">
             <span className="inline-block size-2 rounded-full bg-red-500 animate-pulse" />
             <span className="font-medium text-slate-200">
-              World-Class University Cricket • EPL 2027 ESDM Premier League
+              © EPL 2027 ESDM Premier League
             </span>
           </div>
           <div className="flex items-center gap-5 text-[11px]">
