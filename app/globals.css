@@ -1,13 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --epl-navy: #102235;
-  --epl-navy-deep: #07111d;
-  --epl-gold: #d9b56d;
-  --epl-gold-dark: #af8239;
-  --epl-ink: #172638;
-  --epl-slate: #526475;
-  --epl-line: #dbe1e7;
+  --epl-red: #c53030;
+  --epl-red-hover: #b91c1c;
+  --epl-red-light: #fef2f2;
+  --epl-navy: #0f1e2e;
+  --epl-navy-deep: #05131f;
+  --epl-gold: #d4a84f;
+  --epl-gold-dark: #b8872f;
+  --epl-ink: #0f172a;
+  --epl-slate: #475569;
+  --epl-line: #e2e8f0;
 }
 
 html {
@@ -15,16 +18,16 @@ html {
 }
 
 body {
-  background: #f4f6f8;
+  background: #f8fafc;
   color: var(--epl-ink);
-  font-family: Aptos, "Segoe UI Variable", "Segoe UI", sans-serif;
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-h1, h2, h3, h4, b, strong, button {
-  font-family: "Aptos Display", Aptos, "Segoe UI Variable", "Segoe UI", sans-serif;
+h1, h2, h3, h4, h5, h6, b, strong {
+  font-family: var(--font-poppins), 'Poppins', var(--font-inter), sans-serif;
 }
 
 /* A shared, low-contrast texture lets photo-led pages and data-heavy views feel

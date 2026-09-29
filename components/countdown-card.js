@@ -35,18 +35,36 @@ const CountdownCard = ({ className = "" }) => {
   ];
 
   return (
-    <article id="schedule" className={`border border-white/15 bg-[#07111d]/60 px-3 py-[18px] pb-[15px] text-white shadow-[0_18px_40px_rgba(0,0,0,.25)] backdrop-blur-xl min-[781px]:px-6 ${className}`}>
-      <h3 className="text-center text-[12px] font-bold tracking-[.2em] text-white/85 [text-shadow:1px_1px_3px_rgba(0,0,0,.7)]">
-        AUCTION <span className="text-[#d9b56d]">STARTS IN</span>
-      </h3>
-      <div className="mt-[15px] flex items-center justify-center gap-1.5">
-        {units.map(({ label, value }, index) => (
-          <div className="flex items-center" key={label}>
-            <div className="min-w-[60px] py-2 text-center">
-              <b className="block text-4xl font-bold tabular-nums text-[#d9b56d] [text-shadow:1px_1px_4px_rgba(0,0,0,.7)] min-[781px]:text-5xl">{pad(value)}</b>
-              <small className="text-[8px] tracking-[1px] [text-shadow:1px_1px_2px_rgba(0,0,0,.7)]">{label}</small>
-            </div>
-            {index < units.length - 1 && <b className="mx-1 text-2xl text-[#d9b56d] [text-shadow:1px_1px_3px_rgba(0,0,0,.7)]">:</b>}
+    <article
+      id="schedule"
+      className={`rounded-2xl border border-white/20 bg-gradient-to-br from-[#071626]/90 via-[#030d17]/95 to-black/90 p-4 sm:p-5 text-white shadow-2xl backdrop-blur-xl ${className}`}
+    >
+      <div className="flex items-center justify-between border-b border-white/15 pb-2.5 mb-3">
+        <div className="flex items-center gap-2">
+          <span className="relative flex size-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ef4444] opacity-75" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-[#ef4444]" />
+          </span>
+          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-300">
+            Tournament Live Clock
+          </span>
+        </div>
+        <span className="text-[11px] font-extrabold tracking-widest text-[#d4a84f] uppercase">
+          AUCTION STARTS IN
+        </span>
+      </div>
+      <div className="grid grid-cols-4 gap-2 text-center">
+        {units.map(({ label, value }) => (
+          <div
+            key={label}
+            className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 py-2 px-1 sm:py-2.5 transition-transform duration-200 hover:scale-[1.02] shadow-inner"
+          >
+            <b className="text-2xl sm:text-3xl md:text-4xl font-black tabular-nums text-white tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+              {pad(value)}
+            </b>
+            <span className="mt-0.5 text-[9px] sm:text-[10px] font-bold tracking-wider text-[#d4a84f] uppercase">
+              {label}
+            </span>
           </div>
         ))}
       </div>

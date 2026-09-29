@@ -7,8 +7,9 @@ const Hero = () => {
   return (
     <section
       id="home"
-      className="premium-grid relative h-[715px] overflow-hidden text-white min-[781px]:h-[585px] min-[1100px]:h-[max(800px,min(50vw,950px))]"
+      className="relative min-h-[760px] overflow-hidden text-white pt-[90px] sm:pt-[110px] pb-12 flex items-center"
     >
+      {/* Stadium Background */}
       <Image
         className="hidden object-cover object-right-top min-[781px]:block"
         src="/cricket-stadium-desktop-v2.png"
@@ -25,67 +26,74 @@ const Hero = () => {
         priority
         sizes="100vw"
       />
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,#07111dfc_0%,#102235ef_30%,#1022359b_53%,transparent_76%)] max-[780px]:bg-[linear-gradient(90deg,#07111dfa_0%,#07111dcc_70%,#07111d66)]" />
-      <div className={`${container} relative z-10 flex h-full items-start pt-[82px] min-[781px]:items-center min-[781px]:pt-0`}>
-        <div className="w-full">
-          <p className="m-0 mb-3 whitespace-nowrap text-[clamp(10px,3.3vw,15px)] font-semibold uppercase tracking-[.15em] text-white/75 leading-[1.25]">
-            The Ultimate Cricket Showdown of the{" "}
-            <b className="text-[#d4a84f]">ESDM Faculty!</b>
-          </p>
-          <h1 className="m-0 text-[47px] font-extrabold leading-[.98] tracking-[.04em] [text-shadow:0_2px_12px_#0009] min-[781px]:text-6xl min-[1100px]:text-7xl">
-            EPL <em className="font-normal not-italic">-</em> ESDM
+
+      {/* Atmospheric CricAuction Gradient Overlays */}
+      <div className="absolute inset-0 bg-gradient-to-r from-[#030d17]/98 via-[#061828]/90 to-[#071d30]/60 max-[780px]:bg-gradient-to-b max-[780px]:from-[#030d17]/98 max-[780px]:via-[#051625]/92 max-[780px]:to-[#020b13]/85" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_25%,rgba(212,168,79,0.12),transparent_40%)] pointer-events-none" />
+
+      <div className={`${container} relative z-10 w-full py-6`}>
+        <div className="max-w-[780px]">
+          {/* Top Badge */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-3.5 py-1 mb-4 shadow-lg backdrop-blur-md">
+            <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
+            <p className="m-0 text-[11px] sm:text-xs font-bold uppercase tracking-widest text-[#f5c66b]">
+              The Ultimate Cricket Showdown of the <span className="text-white">ESDM Faculty!</span>
+            </p>
+          </div>
+
+          {/* Main Hero Headline */}
+          <h1 className="m-0 text-4xl sm:text-6xl min-[1100px]:text-7xl font-black leading-[1.05] tracking-tight [text-shadow:0_4px_24px_rgba(0,0,0,0.8)]">
+            EPL <span className="font-light text-[#d4a84f]">—</span> ESDM
           </h1>
-          <h2 className="mt-2 text-[27px] font-bold leading-none tracking-[.16em] text-[#d9b56d] [text-shadow:0_2px_12px_#0009] min-[781px]:text-[34px] min-[1100px]:text-[44px]">
+          <h2 className="mt-1 text-2xl sm:text-4xl min-[1100px]:text-5xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-[#f7d58b] via-[#e5b85a] to-[#d4a84f] [text-shadow:0_4px_24px_rgba(0,0,0,0.6)]">
             PREMIER LEAGUE
           </h2>
-          <p className="m-0 mt-1.5 flex items-center gap-2 text-[22px] tracking-[1px] text-[#d4dde3] min-[781px]:text-[26px] min-[1100px]:text-[35px]">
-            Organized by
+
+          {/* Organizer Brand */}
+          <div className="mt-3 flex items-center gap-3 text-base sm:text-xl font-medium text-slate-200">
+            <span>Organized by</span>
             <Image
-              className="h-[42px] w-auto min-[781px]:h-[50px] min-[1100px]:h-16"
+              className="h-9 sm:h-12 w-auto object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
               src="/addyanta-14-logo.png"
-              alt="নির্বান ২০"
+              alt="Addyanta-14"
               width={770}
               height={429}
             />
-          </p>
-          <div className="my-[18px] h-px w-[90%] max-w-[390px] bg-[linear-gradient(90deg,#d4a84f,#d4a84f,transparent)] text-right leading-[1px]">
-            ●
           </div>
+
+          <div className="my-5 h-0.5 w-48 bg-gradient-to-r from-[#d4a84f] via-[#ef4444] to-transparent rounded-full" />
+
+          {/* Registration Action Cards */}
           <div
             id="registration"
-            className="mt-3.5 flex flex-col gap-[18px] min-[781px]:flex-row"
+            className="flex flex-col sm:flex-row gap-4 w-full"
           >
             <RegistrationCard
               href="/player-registration"
               title={
                 <>
-                  PLAYER
-                  <br />
-                  REGISTRATION
+                  PLAYER REGISTRATION
                 </>
               }
             >
-              Register as an individual player
-              <br />
-              and get drafted by your team.
+              Register as an individual player and get drafted into an auction tier.
             </RegistrationCard>
+
             <RegistrationCard
               team
               href="/team-registration"
               title={
                 <>
-                  TEAM
-                  <br />
-                  REGISTRATION
+                  TEAM REGISTRATION
                 </>
               }
             >
-              Register your team and
-              <br />
-              compete for glory.
+              Register your team with your unique team key and compete for the trophy.
             </RegistrationCard>
           </div>
-          <CountdownCard className="mt-6 w-[475px] max-w-full" />
+
+          {/* Countdown Clock */}
+          <CountdownCard className="mt-6 w-[520px] max-w-full" />
         </div>
       </div>
     </section>

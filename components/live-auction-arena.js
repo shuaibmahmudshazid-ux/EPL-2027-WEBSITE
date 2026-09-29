@@ -390,14 +390,14 @@ const LiveAuctionArena = () => {
           </div>
 
           {/* BROADCAST TABS */}
-          <nav className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#02121f] p-1 text-xs">
+          <nav className="flex items-center gap-1 rounded-xl border border-white/10 bg-[#030d17] p-1 text-xs">
             <button
               type="button"
               onClick={() => setActiveTab("stage")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all cursor-pointer ${
                 activeTab === "stage"
-                  ? "bg-[#b8872f] text-black shadow-md"
-                  : "text-[#9faab2] hover:text-white"
+                  ? "bg-gradient-to-r from-[#c53030] to-[#991b1b] text-white shadow-md font-extrabold"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
               }`}
             >
               <FaGavel />
@@ -406,10 +406,10 @@ const LiveAuctionArena = () => {
             <button
               type="button"
               onClick={() => setActiveTab("purses")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all cursor-pointer ${
                 activeTab === "purses"
-                  ? "bg-[#b8872f] text-black shadow-md"
-                  : "text-[#9faab2] hover:text-white"
+                  ? "bg-gradient-to-r from-[#c53030] to-[#991b1b] text-white shadow-md font-extrabold"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
               }`}
             >
               <FaUsers />
@@ -418,10 +418,10 @@ const LiveAuctionArena = () => {
             <button
               type="button"
               onClick={() => setActiveTab("archive")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all cursor-pointer ${
                 activeTab === "archive"
-                  ? "bg-[#b8872f] text-black shadow-md"
-                  : "text-[#9faab2] hover:text-white"
+                  ? "bg-gradient-to-r from-[#c53030] to-[#991b1b] text-white shadow-md font-extrabold"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
               }`}
             >
               <FaTrophy />
@@ -430,10 +430,10 @@ const LiveAuctionArena = () => {
             <button
               type="button"
               onClick={() => setActiveTab("analytics")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all cursor-pointer ${
                 activeTab === "analytics"
-                  ? "bg-[#b8872f] text-black shadow-md"
-                  : "text-[#9faab2] hover:text-white"
+                  ? "bg-gradient-to-r from-[#c53030] to-[#991b1b] text-white shadow-md font-extrabold"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
               }`}
             >
               <FaChartPie />
@@ -446,7 +446,7 @@ const LiveAuctionArena = () => {
             <button
               type="button"
               onClick={() => setIsMuted(!isMuted)}
-              className="grid size-8 place-items-center rounded-md border border-white/15 bg-white/5 text-[#d4a84f] hover:bg-white/10 cursor-pointer"
+              className="grid size-8 place-items-center rounded-xl border border-white/15 bg-white/5 text-[#d4a84f] hover:bg-white/10 cursor-pointer"
               title={isMuted ? "Unmute broadcast sound effects" : "Mute broadcast sounds"}
             >
               {isMuted ? <FaVolumeXmark /> : <FaVolumeHigh />}
@@ -455,16 +455,16 @@ const LiveAuctionArena = () => {
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="hidden sm:grid size-8 place-items-center rounded-md border border-white/15 bg-white/5 text-white hover:bg-white/10 cursor-pointer"
+              className="hidden sm:grid size-8 place-items-center rounded-xl border border-white/15 bg-white/5 text-white hover:bg-white/10 cursor-pointer"
               title="Toggle Fullscreen Projector / TV Mode"
             >
               <FaExpand />
             </button>
 
             {currentTeamInfo ? (
-              <div className="flex items-center gap-2 rounded-lg border border-[#d4a84f]/40 bg-[#76511d]/30 px-3 py-1 text-xs">
+              <div className="flex items-center gap-2 rounded-xl border border-[#d4a84f]/40 bg-amber-500/10 px-3 py-1 text-xs">
                 <div>
-                  <span className="font-extrabold text-[#f2d590]">{currentTeamInfo.name}</span>
+                  <span className="font-extrabold text-[#d4a84f]">{currentTeamInfo.name}</span>
                   <span className="ml-2 font-mono font-bold text-white">
                     ৳ {currentTeamInfo.pointsRemaining?.toLocaleString()}
                   </span>
@@ -472,7 +472,7 @@ const LiveAuctionArena = () => {
                 <button
                   type="button"
                   onClick={handleTeamLogout}
-                  className="text-[#9faab2] hover:text-red-300 cursor-pointer"
+                  className="text-slate-400 hover:text-red-300 cursor-pointer ml-1"
                   title="Log out team"
                 >
                   <FaRightFromBracket />
@@ -482,7 +482,7 @@ const LiveAuctionArena = () => {
               <button
                 type="button"
                 onClick={() => setShowTeamModal(true)}
-                className="flex items-center gap-1.5 rounded-md bg-[#b8872f] px-3.5 py-1.5 text-xs font-black uppercase text-black hover:brightness-110 shadow-lg cursor-pointer"
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#c53030] to-[#991b1b] px-3.5 py-1.5 text-xs font-black uppercase text-white hover:brightness-110 shadow-lg cursor-pointer"
               >
                 <FaKey />
                 Team Bid Login
@@ -515,16 +515,16 @@ const LiveAuctionArena = () => {
                   {/* TOP STAGE BANNER */}
                   <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3.5">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="rounded-md bg-[#76511d] px-3 py-1 text-xs font-black uppercase tracking-wider text-[#f2d590]">
+                      <span className="rounded-xl bg-gradient-to-r from-[#c53030] to-[#991b1b] px-3.5 py-1 text-xs font-black uppercase tracking-wider text-white shadow">
                         {state.category}
                       </span>
-                      <span className="rounded-md border border-white/20 bg-white/5 px-2.5 py-1 text-xs font-bold text-white">
+                      <span className="rounded-xl border border-white/20 bg-white/5 px-3 py-1 text-xs font-bold text-white">
                         {state.tierName}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="rounded-md bg-[#b8872f] px-3 py-1 text-xs font-black uppercase tracking-wider text-black shadow">
+                      <span className="rounded-xl bg-gradient-to-r from-[#d4a84f] to-[#a37424] px-3.5 py-1 text-xs font-black uppercase tracking-wider text-[#05131f] shadow">
                         PLAYER {state.currentPlayerIndex + 1} OF {currentQueue.length}
                       </span>
                     </div>
@@ -678,12 +678,12 @@ const LiveAuctionArena = () => {
                             isLeadingBidder ||
                             (currentTeamInfo && !hasEnoughPurse)
                           }
-                          className={`w-full rounded-xl py-4 text-lg sm:text-xl font-black tracking-wide uppercase transition-all shadow-2xl cursor-pointer ${
+                          className={`w-full rounded-2xl py-4 text-lg sm:text-xl font-black tracking-wide uppercase transition-all shadow-2xl cursor-pointer ${
                             isLeadingBidder
                               ? "border-2 border-emerald-500 bg-emerald-950/80 text-emerald-300 cursor-not-allowed"
                               : currentTeamInfo && !hasEnoughPurse
                               ? "bg-red-900/60 text-red-300 border border-red-500/40 cursor-not-allowed"
-                              : "bg-gradient-to-r from-[#b8872f] via-[#d4a84f] to-[#b8872f] text-black hover:brightness-110 active:scale-[0.99] shadow-[0_0_25px_rgba(212,168,79,0.4)]"
+                              : "bg-gradient-to-r from-[#c53030] via-[#dc2626] to-[#b91c1c] text-white hover:brightness-110 active:scale-[0.99] shadow-[0_0_30px_rgba(220,38,38,0.5)]"
                           }`}
                         >
                           {isLeadingBidder ? (
@@ -844,7 +844,7 @@ const LiveAuctionArena = () => {
                             <span className="font-bold text-white flex items-center gap-1.5">
                               {t.name}
                               {isLeading && (
-                                <span className="rounded bg-[#b8872f] px-1 py-0.2 text-[8px] text-black font-black">
+                                <span className="rounded bg-[#d4a84f] px-1.5 py-0.5 text-[8px] text-[#05131f] font-black">
                                   LEAD
                                 </span>
                               )}
@@ -920,7 +920,7 @@ const LiveAuctionArena = () => {
                   <button
                     type="button"
                     onClick={() => setShowTeamModal(true)}
-                    className="flex items-center gap-2 rounded-lg bg-[#b8872f] px-5 py-2.5 text-xs font-black uppercase text-black hover:brightness-110 shadow-lg cursor-pointer"
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c53030] to-[#991b1b] px-5 py-2.5 text-xs font-black uppercase text-white hover:brightness-110 shadow-lg cursor-pointer"
                   >
                     <FaKey />
                     Team Login to Prepare Bidding
@@ -1337,7 +1337,7 @@ const LiveAuctionArena = () => {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-[#b8872f] px-5 py-2 text-xs font-black uppercase text-black hover:brightness-110 shadow-lg"
+                  className="rounded-xl bg-gradient-to-r from-[#c53030] to-[#991b1b] px-5 py-2 text-xs font-black uppercase text-white hover:brightness-110 shadow-lg cursor-pointer"
                 >
                   Authenticate
                 </button>
