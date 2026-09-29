@@ -157,8 +157,8 @@ const TournamentInfo = () => {
                   LIVE ARENA
                 </span>
                 <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
-                  <FaCalendarDays className="text-slate-400" />
-                  October 2026
+                  <FaCalendarDays className="text-[#c53030]" />
+                  9th October 2026
                 </span>
               </div>
               <div className="flex items-center gap-4">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-const TARGET_DATE = new Date("2026-10-02T00:00:00");
+const TARGET_DATE = new Date("2026-10-09T00:00:00");
 const pad = (value) => String(value).padStart(2, "0");
 const INITIAL_TIME_LEFT = { days: 0, hours: 0, minutes: 0, seconds: 0 };
 
@@ -50,7 +50,7 @@ const CountdownCard = ({ className = "" }) => {
           </span>
         </div>
         <span className="text-[11px] font-extrabold tracking-widest text-[#d4a84f] uppercase">
-          AUCTION STARTS IN
+          AUCTION: 9TH OCTOBER
         </span>
       </div>
       <div className="grid grid-cols-4 gap-2 text-center">
@@ -67,6 +67,12 @@ const CountdownCard = ({ className = "" }) => {
             </span>
           </div>
         ))}
+      </div>
+      <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] sm:text-[11px] text-slate-400 font-medium">
+        <span>Countdown till: <b className="text-slate-200">8th October (Midnight)</b></span>
+        <span className="font-bold text-[#d4a84f] flex items-center gap-1">
+          🔨 Auction Day: 9th Oct
+        </span>
       </div>
     </article>
   );
