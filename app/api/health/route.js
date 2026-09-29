@@ -6,7 +6,14 @@ export const GET = async () => {
   try {
     await connectToDatabase();
     return Response.json({ status: "ok", database: "connected" });
-  } catch {
-    return Response.json({ status: "error", database: "unavailable" }, { status: 503 });
+  } catch (error) {
+    return Response.json(
+      {
+        status: "error",
+        database: "unavailable",
+        details: error?.message || "Connection failed",
+      },
+      { status: 503 }
+    );
   }
 };
