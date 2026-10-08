@@ -21,8 +21,7 @@ const teamSchema = new mongoose.Schema(
     },
     managers: {
       type: [managerSchema],
-      required: true,
-      validate: (value) => value.length > 0,
+      default: [],
     },
     logoUrl: { type: String, default: null },
     players: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
@@ -33,4 +32,8 @@ const teamSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export default mongoose.models.Team ?? mongoose.model("Team", teamSchema);
+if (mongoose.models.Team) {
+  delete mongoose.models.Team;
+}
+
+export default mongoose.model("Team", teamSchema);

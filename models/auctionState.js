@@ -10,6 +10,8 @@ const queuedPlayerSchema = new mongoose.Schema(
     registrationNumber: { type: String },
     session: { type: String },
     category: { type: String },
+    role: { type: String, default: null },
+    categories: { type: [String], default: [] },
     tier: { type: String },
     basePrice: { type: Number, default: 0 },
     soldPrice: { type: Number, default: null },

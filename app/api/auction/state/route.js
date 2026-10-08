@@ -26,12 +26,20 @@ export const GET = async () => {
     .sort({ name: 1 })
     .lean();
 
+  // Track which teams already acquired a player in the active tier queue
+  const tierSoldPlayers = (state.players || []).filter((p) => p.status === "sold" && p.soldToTeam);
+
   const enrichedTeams = teams.map((team) => {
     const pointsSpent = (team.players || []).reduce(
       (sum, p) => sum + (Number(p.soldPrice) || 0),
       0
     );
     const pointsRemaining = Math.max(0, DEFAULT_TEAM_POINTS - pointsSpent);
+
+    const acquiredInTier = tierSoldPlayers.find(
+      (p) => p.soldToTeam?.toString() === team._id?.toString()
+    );
+
     return {
       _id: team._id,
       name: team.name,
@@ -43,6 +51,13 @@ export const GET = async () => {
       pointsSpent,
       pointsRemaining,
       totalPoints: DEFAULT_TEAM_POINTS,
+      hasWonInCurrentTier: Boolean(acquiredInTier),
+      wonPlayerInCurrentTier: acquiredInTier
+        ? {
+            fullName: acquiredInTier.fullName,
+            soldPrice: acquiredInTier.soldPrice,
+          }
+        : null,
     };
   });
 

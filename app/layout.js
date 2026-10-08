@@ -14,6 +14,14 @@ const poppins = Poppins({
   display: "swap",
 });
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: "#0A0F1D",
+};
+
 export const metadata = {
   title: "EPL | ESDM Premier League",
   description: "University cricket tournament of the ESDM Department.",

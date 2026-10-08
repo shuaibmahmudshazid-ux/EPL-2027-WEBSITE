@@ -2,8 +2,8 @@ import connectToDatabase from "../../../lib/mongodb";
 import { uploadImage } from "../../../lib/cloudinary";
 import { sendRegistrationEmail } from "../../../lib/mailer";
 import Player from "../../../models/player";
-import "../../../models/team";
-import "../../../models/auctionTier";
+import Team from "../../../models/team";
+import AuctionTier from "../../../models/auctionTier";
 import { getSession } from "../../../lib/adminAuth";
 
 export const runtime = "nodejs";
@@ -38,6 +38,85 @@ export const GET = async () => {
 // =========================
 export const POST = async (request) => {
   try {
+    const adminSession = await getSession();
+    const contentType = request.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      if (!adminSession) {
+        return Response.json({ error: "Only admins can register players via JSON." }, { status: 403 });
+      }
+      const json = await request.json();
+      const {
+        fullName,
+        phone,
+        playerId,
+        registrationNumber,
+        email,
+        session,
+        categories,
+        photoUrl,
+        teamId,
+        tierId,
+        basePrice,
+        soldPrice,
+      } = json;
+
+      if (!fullName || !phone || !playerId || !session || !categories?.length) {
+        return Response.json(
+          { error: "Full name, phone, student ID, session, and categories are required." },
+          { status: 400 }
+        );
+      }
+
+      await connectToDatabase();
+
+      const existing = await Player.findOne({ playerId: playerId.trim() }).lean();
+      if (existing) {
+        return Response.json({ error: "This Student ID is already registered." }, { status: 409 });
+      }
+
+      const player = await Player.create({
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        playerId: playerId.trim(),
+        registrationNumber: registrationNumber ? registrationNumber.trim() : undefined,
+        email: email ? email.trim().toLowerCase() : undefined,
+        session,
+        categories,
+        photoUrl: photoUrl || null,
+        status: "approved",
+        basePrice: Number(basePrice) || 0,
+        auctionStatus: teamId ? "sold" : "upcoming",
+      });
+
+      if (tierId) {
+        const tier = await AuctionTier.findById(tierId).lean();
+        if (tier) {
+          player.auctionTier = tier._id;
+          player.tier = tier.name;
+          player.basePrice = tier.basePrice;
+        }
+      }
+
+      if (teamId) {
+        const targetTeam = await Team.findById(teamId);
+        if (targetTeam) {
+          player.team = targetTeam._id;
+          player.soldPrice = soldPrice !== undefined ? Number(soldPrice) : (player.basePrice || 0);
+          player.auctionStatus = "sold";
+          await Team.findByIdAndUpdate(targetTeam._id, { $addToSet: { players: player._id } });
+        }
+      }
+
+      await player.save();
+      const populatedPlayer = await Player.findById(player._id)
+        .populate("team", "name logoUrl")
+        .populate("auctionTier", "name category basePrice")
+        .lean();
+
+      return Response.json({ player: populatedPlayer }, { status: 201 });
+    }
+
     const formData = await request.formData();
 
     const fullName = formData.get("fullName")?.trim();
@@ -194,6 +273,21 @@ export const POST = async (request) => {
           "Registration email failed",
           error
         );
+      }
+    }
+
+    // Optional team assignment on registration
+    const targetTeamId = formData.get("teamId") || formData.get("team");
+    if (targetTeamId) {
+      const targetTeam = await Team.findById(targetTeamId);
+      if (targetTeam) {
+        player.team = targetTeam._id;
+        player.status = "approved";
+        const customPrice = Number(formData.get("soldPrice")) || player.basePrice || 0;
+        player.soldPrice = customPrice;
+        player.auctionStatus = "sold";
+        await player.save();
+        await Team.findByIdAndUpdate(targetTeam._id, { $addToSet: { players: player._id } });
       }
     }
 

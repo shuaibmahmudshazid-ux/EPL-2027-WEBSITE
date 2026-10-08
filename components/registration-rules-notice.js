@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { FaListCheck } from "react-icons/fa6";
 
-const RegistrationRulesNotice = () => {
+export default function RegistrationRulesNotice() {
   const [rules, setRules] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -23,10 +23,19 @@ const RegistrationRulesNotice = () => {
 
   if (!loaded || !rules.length) return null;
 
-  return <div className="mb-6 rounded-2xl border border-[#d4a84f]/70 bg-[#031320]/85 p-5 text-sm text-white shadow-2xl backdrop-blur-md">
-    <h2 className="mb-3 flex items-center gap-2 font-sans font-bold text-lg tracking-wide"><FaListCheck className="text-[#d4a84f]" />REGISTRATION <span className="text-[#d4a84f]">RULES</span></h2>
-    <ol className="list-decimal space-y-2 pl-5 marker:font-bold marker:text-[#d4a84f]">{rules.map((rule, index) => <li key={index}>{rule}</li>)}</ol>
-  </div>;
-};
-
-export default RegistrationRulesNotice;
+  return (
+    <div className="mb-6 rounded-2xl sm:rounded-3xl border border-white/10 bg-[#111827]/80 p-4 sm:p-6 text-sm text-slate-300 shadow-2xl backdrop-blur-xl">
+      <h2 className="mb-3 flex items-center gap-2 font-sans font-black text-sm sm:text-base uppercase tracking-wider text-white">
+        <FaListCheck className="text-amber-400" />
+        Official Registration <span className="text-amber-400">Rules</span>
+      </h2>
+      <ol className="list-decimal space-y-2 pl-5 marker:font-black marker:text-amber-400 text-xs sm:text-sm text-slate-300">
+        {rules.map((rule, index) => (
+          <li key={index} className="leading-relaxed">
+            {rule}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}

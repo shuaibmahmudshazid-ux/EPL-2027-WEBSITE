@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   FaCheck,
   FaCoins,
@@ -16,7 +16,11 @@ import {
   FaTrophy,
   FaUsers,
   FaXmark,
+  FaCompress,
+  FaExpand,
 } from "react-icons/fa6";
+import PlayerStageRevealCard from "./player-stage-reveal-card";
+import AuctionRoundStamp from "./auction-round-stamp";
 
 const safeParse = async (response) => {
   try {
@@ -53,9 +57,55 @@ const AdminLiveAuctionView = () => {
   // Stop & Reset Modals state
   const [showStopModal, setShowStopModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showStagePreview, setShowStagePreview] = useState(false);
 
   // Manual bid trigger state
   const [manualBidTeamId, setManualBidTeamId] = useState("");
+
+  // Fullscreen support (with F key shortcut)
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.key === "f" || e.key === "F") && !["INPUT", "TEXTAREA", "SELECT"].includes(e.target?.tagName)) {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [toggleFullscreen]);
 
   const pollRef = useRef(null);
 
@@ -140,6 +190,13 @@ const AdminLiveAuctionView = () => {
   // Place manual bid on behalf of a team
   const placeManualBid = async () => {
     if (!manualBidTeamId) return;
+    const selectedTeam = teams.find((t) => t._id === manualBidTeamId);
+    if (selectedTeam?.hasWonInCurrentTier) {
+      setError(
+        `Tier Quota Reached: ${selectedTeam.name} already acquired ${selectedTeam.wonPlayerInCurrentTier?.fullName || "a player"} in this tier (${state.tierName || "Current Tier"}). You cannot place a bid for them until the next tier starts.`
+      );
+      return;
+    }
     try {
       setSubmittingAction(true);
       const res = await fetch("/api/auction/bid", {
@@ -204,24 +261,24 @@ const AdminLiveAuctionView = () => {
   return (
     <div className="space-y-4 text-white">
       {/* HEADER SECTION */}
-      <section className="rounded-lg border border-[#b8a18055] bg-[#031827]/90 p-4 shadow-lg">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+      <section className="rounded-2xl border border-[#aeac78]/30 bg-gradient-to-br from-[#383230]/95 to-[#241f1e]/95 p-5 sm:p-6 shadow-xl backdrop-blur-xl text-[#fcf0da]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#aeac78]/20 pb-3">
           <div className="flex items-center gap-2.5">
-            <i className="grid size-10 place-items-center rounded-lg bg-[#b8872f] text-lg text-black">
+            <i className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-[#f2c46a] to-[#c89632] text-lg text-[#221d1c]">
               <FaGavel />
             </i>
             <div>
-              <h2 className="text-lg font-bold tracking-wide flex items-center gap-2">
+              <h2 className="text-lg font-black tracking-wide text-[#fcf0da] flex items-center gap-2">
                 AUCTIONEER LIVE CONSOLE
                 <span
-                  className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase border ${
+                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase border ${
                     state.status === "in_progress"
-                      ? "bg-emerald-950/60 text-emerald-400 border-emerald-500/50"
+                      ? "bg-[#aeac78]/25 text-[#fcf0da] border-[#aeac78]/50"
                       : state.status === "paused"
-                      ? "bg-amber-950/60 text-amber-400 border-amber-500/50 animate-pulse"
+                      ? "bg-[#f2c46a]/20 text-[#f2c46a] border-[#f2c46a]/50 animate-pulse"
                       : state.status === "completed"
-                      ? "bg-blue-950/60 text-blue-400 border-blue-500/50"
-                      : "bg-white/10 text-[#9faab2] border-white/15"
+                      ? "bg-[#aeac78]/20 text-[#aeac78] border-[#aeac78]/40"
+                      : "bg-white/10 text-[#aeac78] border-white/15"
                   }`}
                 >
                   {state.status === "in_progress"
@@ -311,8 +368,31 @@ const AdminLiveAuctionView = () => {
               rel="noreferrer"
               className="flex items-center gap-1.5 rounded border border-[#d4a84f]/60 bg-[#76511d]/40 px-3 py-1.5 text-xs font-bold text-[#f2d590] hover:bg-[#76511d] transition-colors"
             >
-              Open Public Arena ↗
+              Public Arena ↗
             </a>
+            <a
+              href="/auction/stage"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded border border-cyan-400/60 bg-cyan-950/60 px-3 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-900/80 transition-colors"
+              title="Open Stage Projector screen for auditorium display"
+            >
+              Auditorium Stage ↗
+            </a>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                isFullscreen
+                  ? "border-emerald-500/70 bg-emerald-950/70 text-emerald-300 hover:bg-emerald-900/80"
+                  : "border-white/20 bg-white/5 text-[#ccd4d8] hover:bg-white/10"
+              }`}
+              title="Toggle Fullscreen (F)"
+            >
+              {isFullscreen ? <FaCompress className="text-[11px]" /> : <FaExpand className="text-[11px]" />}
+              <span>{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
+              <kbd className="hidden md:inline-block ml-0.5 rounded bg-black/40 px-1 py-0.2 text-[9px] font-mono text-[#8b979d] border border-white/10">F</kbd>
+            </button>
             <button
               type="button"
               onClick={fetchAuctionState}
@@ -411,17 +491,29 @@ const AdminLiveAuctionView = () => {
 
               {/* PLAYER PROFILE ROW */}
               <div className="flex flex-wrap items-center gap-4 border-b border-white/10 pb-4">
-                {currentPlayer.photoUrl ? (
-                  <img
-                    src={currentPlayer.photoUrl}
-                    alt={currentPlayer.fullName}
-                    className="size-20 rounded-full border-2 border-[#d4a84f] object-cover shadow-lg"
-                  />
-                ) : (
-                  <div className="grid size-20 place-items-center rounded-full border-2 border-[#d4a84f] bg-white/10 text-xl font-bold text-[#d4a84f]">
-                    {currentPlayer.fullName.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
+                <div className="relative shrink-0">
+                  {currentPlayer.photoUrl ? (
+                    <img
+                      src={currentPlayer.photoUrl}
+                      alt={currentPlayer.fullName}
+                      className="size-20 rounded-full border-2 border-[#d4a84f] object-cover shadow-lg"
+                    />
+                  ) : (
+                    <div className="grid size-20 place-items-center rounded-full border-2 border-[#d4a84f] bg-white/10 text-xl font-bold text-[#d4a84f]">
+                      {currentPlayer.fullName.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+
+                  {["sold", "unsold"].includes((state.hammerStatus || "").toLowerCase()) && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <AuctionRoundStamp
+                        status={state.hammerStatus}
+                        size="sm"
+                        price={state.hammerStatus === "sold" ? state.currentBid : null}
+                      />
+                    </div>
+                  )}
+                </div>
 
                 <div>
                   <h3 className="text-2xl font-black text-white">{currentPlayer.fullName}</h3>
@@ -480,105 +572,252 @@ const AdminLiveAuctionView = () => {
               </div>
 
               {/* HAMMER & AUCTION CONTROL BUTTONS */}
-              <div className="mt-5 space-y-2">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <button
-                    type="button"
-                    onClick={() => sendControlAction("HAMMER_GOING_ONCE")}
-                    disabled={submittingAction || state.currentBid <= 0}
-                    className="rounded bg-[#956a26] py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-40 cursor-pointer"
-                  >
-                    GOING ONCE! 🔨
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => sendControlAction("HAMMER_GOING_TWICE")}
-                    disabled={submittingAction || state.currentBid <= 0}
-                    className="rounded bg-[#b8872f] py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-40 cursor-pointer"
-                  >
-                    GOING TWICE! 🔨
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => sendControlAction("HAMMER_SOLD")}
-                    disabled={submittingAction || state.currentBid <= 0}
-                    className="rounded bg-[#27ae60] py-2.5 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 shadow-lg cursor-pointer"
-                  >
-                    SOLD! 🏆
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => sendControlAction("HAMMER_UNSOLD")}
-                    disabled={submittingAction}
-                    className="rounded bg-[#c0392b] py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-40 cursor-pointer"
-                  >
-                    PASS / UNSOLD ✕
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-white/10">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* PAUSE / RESUME */}
-                    {state.status === "in_progress" ? (
+              {state.hammerStatus === "waiting" ? (
+                /* STAGE SPOTLIGHT REVEAL CONTROLLER (BEFORE BIDDING STARTS) */
+                <div className="mt-5 space-y-3">
+                  <div className="rounded-xl border-2 border-emerald-500/70 bg-gradient-to-r from-emerald-950/90 via-[#011a0e] to-emerald-950/90 p-4 text-center shadow-xl">
+                    <div className="flex items-center justify-center gap-2 text-sm font-black uppercase tracking-wider text-emerald-300">
+                      <span className="size-2.5 rounded-full bg-emerald-400 animate-ping" />
+                      STAGE SPOTLIGHT REVEAL ACTIVE
+                    </div>
+                    <p className="mt-1 text-xs text-emerald-200">
+                      Public and auditorium screens are displaying <b>{currentPlayer.fullName}</b> with base price <b>৳ {currentBasePrice.toLocaleString()}</b>.
+                    </p>
+                    <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
                       <button
                         type="button"
-                        onClick={() => sendControlAction("PAUSE")}
+                        onClick={() => sendControlAction("OPEN_BIDDING", { timerSeconds: 20 })}
                         disabled={submittingAction}
-                        className="flex items-center gap-1.5 rounded border border-amber-500/60 bg-amber-950/60 px-3.5 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-900/80 cursor-pointer transition-colors"
-                        title="Pause live auction"
+                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-2.5 text-xs font-black uppercase text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] hover:brightness-110 active:scale-98 cursor-pointer disabled:opacity-50"
                       >
-                        <FaPause className="text-[11px]" />
-                        Pause
+                        <FaPlay />
+                        OPEN BIDDING NOW (20s Timer)
                       </button>
-                    ) : (
                       <button
                         type="button"
-                        onClick={() => sendControlAction("RESUME")}
+                        onClick={() => sendControlAction("OPEN_BIDDING", { timerSeconds: 30 })}
                         disabled={submittingAction}
-                        className="flex items-center gap-1.5 rounded border border-emerald-500/60 bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 cursor-pointer shadow animate-pulse transition-colors"
-                        title="Resume live auction"
+                        className="flex items-center gap-1.5 rounded-xl border border-emerald-400/50 bg-emerald-950/50 px-4 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900/60 cursor-pointer disabled:opacity-50"
                       >
-                        <FaPlay className="text-[11px]" />
-                        Resume
+                        <FaStopwatch />
+                        30s Timer
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => setShowStagePreview(!showStagePreview)}
+                        className="rounded-xl border border-cyan-400/50 bg-cyan-950/50 px-3.5 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-900/60 cursor-pointer"
+                      >
+                        {showStagePreview ? "Hide Preview" : "Preview Stage Display 👁"}
+                      </button>
+                    </div>
+                  </div>
 
-                    {/* STOP BUTTON */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-white/10">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {state.status === "in_progress" ? (
+                        <button
+                          type="button"
+                          onClick={() => sendControlAction("PAUSE")}
+                          disabled={submittingAction}
+                          className="flex items-center gap-1.5 rounded border border-amber-500/60 bg-amber-950/60 px-3.5 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-900/80 cursor-pointer transition-colors"
+                          title="Pause live auction"
+                        >
+                          <FaPause className="text-[11px]" />
+                          Pause
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => sendControlAction("RESUME")}
+                          disabled={submittingAction}
+                          className="flex items-center gap-1.5 rounded border border-emerald-500/60 bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 cursor-pointer shadow animate-pulse transition-colors"
+                          title="Resume live auction"
+                        >
+                          <FaPlay className="text-[11px]" />
+                          Resume
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setShowStopModal(true)}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded border border-red-500/60 bg-red-950/60 px-3.5 py-1.5 text-xs font-bold text-red-300 hover:bg-red-900/80 cursor-pointer transition-colors"
+                        title="Stop ongoing live auction"
+                      >
+                        <FaStop className="text-[11px]" />
+                        Stop
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowResetModal(true)}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded border border-white/20 bg-white/5 px-3.5 py-1.5 text-xs font-bold text-[#ccd4d8] hover:bg-white/10 cursor-pointer transition-colors"
+                        title="Reset current player bids or entire auction"
+                      >
+                        <FaRotateLeft className="text-[11px]" />
+                        Reset...
+                      </button>
+                    </div>
+
                     <button
                       type="button"
-                      onClick={() => setShowStopModal(true)}
-                      disabled={submittingAction}
-                      className="flex items-center gap-1.5 rounded border border-red-500/60 bg-red-950/60 px-3.5 py-1.5 text-xs font-bold text-red-300 hover:bg-red-900/80 cursor-pointer transition-colors"
-                      title="Stop ongoing live auction"
+                      onClick={() => sendControlAction("NEXT_PLAYER")}
+                      disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
+                      className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
                     >
-                      <FaStop className="text-[11px]" />
-                      Stop
+                      NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
+                      <FaForward />
                     </button>
-
-                    {/* RESET BUTTON */}
+                  </div>
+                </div>
+              ) : (
+                /* ACTIVE BIDDING CONTROLS */
+                <div className="mt-5 space-y-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <button
                       type="button"
-                      onClick={() => setShowResetModal(true)}
-                      disabled={submittingAction}
-                      className="flex items-center gap-1.5 rounded border border-white/20 bg-white/5 px-3.5 py-1.5 text-xs font-bold text-[#ccd4d8] hover:bg-white/10 cursor-pointer transition-colors"
-                      title="Reset current player bids or entire auction"
+                      onClick={() => sendControlAction("HAMMER_GOING_ONCE")}
+                      disabled={submittingAction || state.currentBid <= 0}
+                      className="rounded bg-[#956a26] py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-40 cursor-pointer"
                     >
-                      <FaRotateLeft className="text-[11px]" />
-                      Reset...
+                      GOING ONCE! 🔨
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sendControlAction("HAMMER_GOING_TWICE")}
+                      disabled={submittingAction || state.currentBid <= 0}
+                      className="rounded bg-[#b8872f] py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-40 cursor-pointer"
+                    >
+                      GOING TWICE! 🔨
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sendControlAction("HAMMER_SOLD")}
+                      disabled={submittingAction || state.currentBid <= 0}
+                      className="rounded bg-[#27ae60] py-2.5 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 shadow-lg cursor-pointer"
+                    >
+                      SOLD! 🏆
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sendControlAction("HAMMER_UNSOLD")}
+                      disabled={submittingAction}
+                      className="rounded bg-[#c0392b] py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-40 cursor-pointer"
+                    >
+                      PASS / UNSOLD ✕
                     </button>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => sendControlAction("NEXT_PLAYER")}
-                    disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
-                    className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
-                  >
-                    NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
-                    <FaForward />
-                  </button>
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-white/10">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {state.status === "in_progress" ? (
+                        <button
+                          type="button"
+                          onClick={() => sendControlAction("PAUSE")}
+                          disabled={submittingAction}
+                          className="flex items-center gap-1.5 rounded border border-amber-500/60 bg-amber-950/60 px-3.5 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-900/80 cursor-pointer transition-colors"
+                          title="Pause live auction"
+                        >
+                          <FaPause className="text-[11px]" />
+                          Pause
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => sendControlAction("RESUME")}
+                          disabled={submittingAction}
+                          className="flex items-center gap-1.5 rounded border border-emerald-500/60 bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 cursor-pointer shadow animate-pulse transition-colors"
+                          title="Resume live auction"
+                        >
+                          <FaPlay className="text-[11px]" />
+                          Resume
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => sendControlAction("REVEAL_PLAYER")}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded border border-cyan-500/60 bg-cyan-950/60 px-3.5 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-900/80 cursor-pointer transition-colors"
+                        title="Re-show player spotlight reveal screen on public display"
+                      >
+                        📺 Re-show Reveal Screen
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowStagePreview(!showStagePreview)}
+                        className="rounded border border-white/20 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-slate-300 hover:bg-white/10 cursor-pointer"
+                      >
+                        {showStagePreview ? "Hide Preview" : "Preview Stage 👁"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowStopModal(true)}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded border border-red-500/60 bg-red-950/60 px-3.5 py-1.5 text-xs font-bold text-red-300 hover:bg-red-900/80 cursor-pointer transition-colors"
+                        title="Stop ongoing live auction"
+                      >
+                        <FaStop className="text-[11px]" />
+                        Stop
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowResetModal(true)}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded border border-white/20 bg-white/5 px-3.5 py-1.5 text-xs font-bold text-[#ccd4d8] hover:bg-white/10 cursor-pointer transition-colors"
+                        title="Reset current player bids or entire auction"
+                      >
+                        <FaRotateLeft className="text-[11px]" />
+                        Reset...
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => sendControlAction("NEXT_PLAYER")}
+                      disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
+                      className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
+                    >
+                      NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
+                      <FaForward />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* LIVE STAGE DISPLAY PREVIEW INSIDE CONSOLE */}
+              {showStagePreview && (
+                <div className="mt-4 rounded-2xl border-2 border-cyan-400/40 bg-black/60 p-4 shadow-2xl">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+                    <span className="font-mono text-xs font-bold text-cyan-300 uppercase">
+                      Auditorium Stage Screen Preview (Live Audience View)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowStagePreview(false)}
+                      className="text-xs text-slate-400 hover:text-white cursor-pointer"
+                    >
+                      ✕ Close Preview
+                    </button>
+                  </div>
+                  <PlayerStageRevealCard
+                    player={currentPlayer}
+                    basePrice={currentBasePrice}
+                    tierName={state.tierName}
+                    categoryName={state.category}
+                    playerIndex={state.currentPlayerIndex}
+                    totalPlayers={currentQueue.length}
+                    isFifthPlayer={isFifthPlayer}
+                    isProjectorMode={false}
+                    isBiddingOpen={["bidding_open", "going_once", "going_twice"].includes(state.hammerStatus)}
+                  />
+                </div>
+              )}
 
               {/* MANUAL BID PLACER BAR (For Admin to trigger bids from console) */}
               <div className="mt-4 rounded-md border border-white/10 bg-[#031827] p-3">
@@ -593,8 +832,11 @@ const AdminLiveAuctionView = () => {
                   >
                     <option value="">-- Select Team --</option>
                     {teams.map((t) => (
-                      <option key={t._id} value={t._id}>
+                      <option key={t._id} value={t._id} disabled={t.hasWonInCurrentTier}>
                         {t.name} (৳ {t.pointsRemaining?.toLocaleString()} left)
+                        {t.hasWonInCurrentTier
+                          ? ` — 🔒 Quota Met (${t.wonPlayerInCurrentTier?.fullName || "Player Won"})`
+                          : ""}
                       </option>
                     ))}
                   </select>
@@ -633,17 +875,28 @@ const AdminLiveAuctionView = () => {
                         <span className="grid size-6 place-items-center rounded bg-white/10 text-[10px] font-bold">
                           #{idx + 1}
                         </span>
-                        {item.photoUrl ? (
-                          <img
-                            src={item.photoUrl}
-                            alt={item.fullName}
-                            className="size-7 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="grid size-7 place-items-center rounded-full bg-white/10 text-[9px] font-bold">
-                            {item.fullName.slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
+                        <div className="relative shrink-0">
+                          {item.photoUrl ? (
+                            <img
+                              src={item.photoUrl}
+                              alt={item.fullName}
+                              className="size-7 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="grid size-7 place-items-center rounded-full bg-white/10 text-[9px] font-bold">
+                              {item.fullName.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          {["sold", "unsold"].includes((item.status || "").toLowerCase()) && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none scale-75">
+                              <AuctionRoundStamp
+                                status={item.status}
+                                size="xs"
+                                animated={false}
+                              />
+                            </div>
+                          )}
+                        </div>
                         <div>
                           <p className="font-bold text-white flex items-center gap-1.5">
                             {item.fullName}
@@ -709,11 +962,19 @@ const AdminLiveAuctionView = () => {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-white flex items-center gap-1.5">
+                        <span className="font-bold text-white flex items-center gap-1.5 flex-wrap">
                           {team.name}
                           {isLeading && (
                             <span className="rounded bg-[#b8872f] px-1.5 py-0.2 text-[9px] text-black font-extrabold">
                               LEAD
+                            </span>
+                          )}
+                          {team.hasWonInCurrentTier && (
+                            <span
+                              className="rounded bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.2 text-[8px] text-amber-300 font-bold"
+                              title={`Acquired ${team.wonPlayerInCurrentTier?.fullName || "player"} in this tier`}
+                            >
+                              🔒 TIER QUOTA
                             </span>
                           )}
                         </span>
@@ -1047,6 +1308,17 @@ const AdminLiveAuctionView = () => {
           </div>
         </div>
       )}
+
+      {/* FLOATING QUICK FULLSCREEN BUTTON */}
+      <button
+        type="button"
+        onClick={toggleFullscreen}
+        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full border border-amber-500/40 bg-[#161211]/90 px-3.5 py-2 text-xs font-bold text-amber-300 shadow-xl backdrop-blur-md hover:bg-[#251e1c] hover:border-amber-400 hover:scale-105 transition-all cursor-pointer"
+        title="Toggle Fullscreen (F)"
+      >
+        {isFullscreen ? <FaCompress className="text-sm" /> : <FaExpand className="text-sm" />}
+        <span className="hidden sm:inline">{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
+      </button>
     </div>
   );
 };

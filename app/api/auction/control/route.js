@@ -15,7 +15,7 @@ export const POST = async (request) => {
   }
 
   try {
-    const { action, tierId, selectedPlayerIds, customBasePrice, scope } = await request.json();
+    const { action, tierId, selectedPlayerIds, customBasePrice, scope, timerSeconds } = await request.json();
     await connectToDatabase();
 
     let state = await AuctionState.findOne({ auctionCode: "LIVE" });
@@ -75,6 +75,8 @@ export const POST = async (request) => {
         registrationNumber: p.registrationNumber,
         session: p.session,
         category: tier.category,
+        role: Array.isArray(p.categories) && p.categories.length > 0 ? p.categories[0] : (tier.category || "Player"),
+        categories: Array.isArray(p.categories) ? p.categories : [tier.category],
         tier: tier.name,
         basePrice: tier.basePrice || 500,
         soldPrice: null,
@@ -95,9 +97,9 @@ export const POST = async (request) => {
       state.currentBidderTeamName = null;
       state.currentBidderTeamLogo = null;
       state.bidHistory = [];
-      state.hammerStatus = "bidding_open";
-      state.timerSeconds = 20;
-      state.timerEndAt = new Date(Date.now() + 20000);
+      state.hammerStatus = "waiting";
+      state.timerSeconds = typeof timerSeconds === "number" && timerSeconds > 0 ? timerSeconds : 20;
+      state.timerEndAt = null;
       state.player3SoldPrice = null;
       state.player4SoldPrice = null;
       state.fifthPlayerCalculatedBasePrice = null;
@@ -263,14 +265,46 @@ export const POST = async (request) => {
       state.currentBidderTeamName = null;
       state.currentBidderTeamLogo = null;
       state.bidHistory = [];
-      state.hammerStatus = "bidding_open";
-      state.timerSeconds = 20;
-      state.timerEndAt = new Date(Date.now() + 20000);
+      state.hammerStatus = "waiting";
+      state.timerSeconds = typeof timerSeconds === "number" && timerSeconds > 0 ? timerSeconds : 20;
+      state.timerEndAt = null;
 
       await state.save();
       return Response.json({
         success: true,
         message: `Now auctioning Player ${nextIdx + 1} of ${state.players.length}: ${state.players[nextIdx].fullName}`,
+        state,
+      });
+    }
+
+    // ========================================================
+    // 5B. OPEN BIDDING / REVEAL PLAYER
+    // ========================================================
+    if (action === "OPEN_BIDDING") {
+      if (state.status !== "in_progress") {
+        state.status = "in_progress";
+      }
+      state.hammerStatus = "bidding_open";
+      const seconds = typeof timerSeconds === "number" && timerSeconds > 0 ? timerSeconds : (state.timerSeconds || 20);
+      state.timerSeconds = seconds;
+      state.timerEndAt = new Date(Date.now() + seconds * 1000);
+      await state.save();
+
+      const currP = state.players[state.currentPlayerIndex];
+      return Response.json({
+        success: true,
+        message: `Bidding opened for ${currP?.fullName || "current player"}!`,
+        state,
+      });
+    }
+
+    if (action === "REVEAL_PLAYER") {
+      state.hammerStatus = "waiting";
+      state.timerEndAt = null;
+      await state.save();
+      return Response.json({
+        success: true,
+        message: `Showing player stage reveal screen to public.`,
         state,
       });
     }

@@ -702,20 +702,20 @@ const AdminAuctionTiersView = () => {
   return (
     <div className="space-y-4">
       {/* SECTION HEADER */}
-      <section className="rounded-lg border border-[#b8a18055] bg-[#031827]/90 p-4 shadow-lg">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+      <section className="rounded-2xl border border-[#aeac78]/30 bg-gradient-to-br from-[#383230]/95 to-[#241f1e]/95 p-5 sm:p-6 shadow-xl backdrop-blur-xl text-[#fcf0da]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#aeac78]/20 pb-3">
           <div className="flex items-center gap-2.5">
-            <i className="grid size-9 place-items-center rounded-lg bg-[#76511d] text-base text-[#f2d590]">
+            <i className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-[#f2c46a] to-[#c89632] text-base text-[#221d1c]">
               <FaGavel />
             </i>
             <div>
-              <h2 className="text-base font-bold tracking-wide text-white flex items-center gap-2">
+              <h2 className="text-base font-black tracking-wide text-[#fcf0da] flex items-center gap-2">
                 AUCTION PLAYER TIERS &amp; CATEGORIES
-                <span className="rounded bg-[#d4a84f]/20 px-2 py-0.5 text-[10px] font-bold text-[#d4a84f] border border-[#d4a84f]/40">
+                <span className="rounded-full bg-[#f2c46a]/20 px-2 py-0.5 text-[10px] font-bold text-[#f2c46a] border border-[#f2c46a]/40">
                   Manual Division
                 </span>
               </h2>
-              <p className="text-xs text-[#9faab2]">
+              <p className="text-xs text-[#aeac78]">
                 Organize players into category tiers (e.g. Batsman Tier A, B, C) with base prices for auction bidding.
               </p>
             </div>

@@ -5,8 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   FaArrowRightFromBracket,
-  FaBell,
   FaCalendarCheck,
+  FaCalendarDays,
   FaChartBar,
   FaGavel,
   FaKey,
@@ -18,6 +18,7 @@ import {
   FaUserPlus,
   FaUsers,
   FaArrowUpRightFromSquare,
+  FaCamera,
 } from "react-icons/fa6";
 import AdminPlayersView from "./admin-players-view";
 import AdminAuctionTiersView from "./admin-auction-tiers-view";
@@ -28,15 +29,19 @@ import AdminAddAdminView from "./admin-add-admin-view";
 import AdminRegistrationRulesView from "./admin-registration-rules-view";
 import AdminTeamKeysView from "./admin-team-keys-view";
 import AdminTeamsView from "./admin-teams-view";
+import AdminGalleryView from "./admin-gallery-view";
+import AdminFixturesView from "./admin-fixtures-view";
 
 const menu = [
   { label: "Dashboard", icon: FaChartBar },
   { label: "Live Auction", icon: FaGavel },
   { label: "Auction Tiers", icon: FaLayerGroup },
+  { label: "Fixtures Management", icon: FaCalendarDays },
   { label: "Teams", icon: FaUserGroup },
   { label: "Players", icon: FaUsers },
   { label: "Player Registration Rules", icon: FaListCheck },
   { label: "Team Keys", icon: FaKey },
+  { label: "Tournament Gallery", icon: FaCamera },
 ];
 
 const accountMenu = [
@@ -45,14 +50,14 @@ const accountMenu = [
 ];
 
 const Stat = ({ icon: Icon, label, value, gradient, textAccent }) => (
-  <article className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#071927] to-[#040e17] p-5 shadow-lg transition-all duration-300 hover:border-white/20 hover:shadow-2xl">
+  <article className="group relative overflow-hidden rounded-2xl border-2 border-white/20 bg-[#1c1716] p-5 shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all duration-300 hover:border-[#f2c46a] hover:shadow-2xl">
     <div className="flex items-center gap-4">
-      <i className={`grid size-13 place-items-center rounded-2xl bg-gradient-to-br ${gradient} text-xl text-white shadow-md not-italic group-hover:scale-105 transition-transform duration-300`}>
+      <i className={`grid size-13 place-items-center rounded-2xl bg-gradient-to-br ${gradient} text-xl shadow-md not-italic group-hover:scale-105 transition-transform duration-300 border border-white/10`}>
         <Icon />
       </i>
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-        <b className={`text-3xl font-black tabular-nums tracking-tight ${textAccent || "text-white"}`}>
+        <p className="text-xs font-black uppercase tracking-wider text-[#aeac78]">{label}</p>
+        <b className={`text-3xl sm:text-4xl font-black tabular-nums tracking-tight ${textAccent || "text-white"}`}>
           {value ?? "…"}
         </b>
       </div>
@@ -138,10 +143,10 @@ const AdminDashboard = () => {
 
   if (session === undefined) {
     return (
-      <div className="grid min-h-screen place-items-center bg-[#030d17] text-sm text-[#9faab2]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="size-8 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
-          <span>Loading EPL Admin Panel...</span>
+      <div className="grid min-h-screen place-items-center moving-gradient-admin text-sm text-[#f2c46a]">
+        <div className="flex flex-col items-center gap-3.5">
+          <div className="size-10 rounded-full border-3 border-[#f2c46a] border-t-transparent animate-spin" />
+          <span className="font-black text-base text-white">Loading EPL Admin Panel...</span>
         </div>
       </div>
     );
@@ -152,25 +157,29 @@ const AdminDashboard = () => {
   const initials = session.email.slice(0, 2).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#030d17] text-[#edf2f4]">
+    <div className="min-h-screen moving-gradient-admin text-white relative overflow-hidden">
+      {/* Moving Ambient Aura Orbs across Admin Background */}
+      <div className="moving-orb-gold -top-24 right-1/4 size-96 opacity-40" />
+      <div className="moving-orb-sage bottom-1/4 -left-20 size-96 opacity-35" />
+
       {/* SIDEBAR NAVIGATION */}
-      <aside className="fixed inset-y-0 left-0 hidden w-[250px] border-r border-white/10 bg-[#04111d] p-4 lg:flex lg:flex-col">
+      <aside className="fixed inset-y-0 left-0 hidden w-[250px] border-r border-white/15 bg-[#161211]/98 backdrop-blur-xl p-4 lg:flex lg:flex-col z-30 shadow-2xl">
         {/* Brand Header */}
-        <div className="mb-6 flex items-center gap-3 px-2 py-2 border-b border-white/10 pb-4">
-          <div className="relative size-10 shrink-0">
+        <div className="mb-6 flex items-center gap-3.5 px-2 py-2 border-b border-white/15 pb-4">
+          <div className="relative size-11 shrink-0">
             <Image
               src="/epl-logo.png"
               alt="EPL Logo"
               fill
-              className="object-contain"
+              className="object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
               priority
             />
           </div>
           <div>
-            <b className="block text-base font-black tracking-tight text-white leading-none">
-              EPL <span className="text-[#d4a84f]">ADMIN</span>
+            <b className="block text-lg font-black tracking-tight text-white leading-none">
+              EPL <span className="text-[#f2c46a]">ADMIN</span>
             </b>
-            <small className="block text-[8px] tracking-[1.5px] text-[#d4a84f] font-bold uppercase mt-1">
+            <small className="block text-[8px] tracking-[1.5px] text-[#aeac78] font-black uppercase mt-1">
               ESDM PREMIER LEAGUE
             </small>
           </div>
@@ -180,10 +189,10 @@ const AdminDashboard = () => {
         <nav className="space-y-1.5 flex-1">
           {menu.map(({ label, icon: Icon }) => (
             <a
-              className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all ${
+              className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-black transition-all ${
                 label === activeSection
-                  ? "bg-gradient-to-r from-[#c53030] to-[#991b1b] text-white shadow-md shadow-red-950/50"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white"
+                  ? "bg-gradient-to-r from-[#f2c46a] via-[#f7d070] to-[#e0a838] text-[#141110] shadow-lg font-black scale-[1.02] border border-[#f2c46a]"
+                  : "text-white hover:bg-white/10 hover:text-[#f2c46a]"
               }`}
               href="#dashboard"
               onClick={(event) => {
@@ -199,16 +208,16 @@ const AdminDashboard = () => {
         </nav>
 
         {/* Account & Bottom Controls */}
-        <div className="mt-auto space-y-1 border-t border-white/10 pt-4">
-          <p className="px-3 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+        <div className="mt-auto space-y-1.5 border-t border-white/15 pt-4">
+          <p className="px-3 pb-1 text-[10px] font-black uppercase tracking-wider text-[#aeac78]">
             Account Management
           </p>
           {accountMenu.map(({ label, icon: Icon }) => (
             <a
-              className={`flex items-center gap-3 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all ${
+              className={`flex items-center gap-3 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
                 label === activeSection
-                  ? "bg-gradient-to-r from-[#c53030] to-[#991b1b] text-white shadow-md"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white"
+                  ? "bg-gradient-to-r from-[#f2c46a] to-[#d8a543] text-[#141110] shadow-md font-black"
+                  : "text-white hover:bg-white/10 hover:text-[#f2c46a]"
               }`}
               href="#dashboard"
               onClick={(event) => {
@@ -222,7 +231,7 @@ const AdminDashboard = () => {
             </a>
           ))}
           <a
-            className="flex items-center gap-3 rounded-xl px-3.5 py-2 text-xs font-semibold text-red-300 hover:bg-red-950/30 transition-all cursor-pointer"
+            className="flex items-center gap-3 rounded-xl px-3.5 py-2 text-xs font-extrabold text-[#f2c46a] hover:bg-white/10 transition-all cursor-pointer"
             href="#dashboard"
             onClick={(event) => {
               event.preventDefault();
@@ -236,19 +245,19 @@ const AdminDashboard = () => {
       </aside>
 
       {/* MAIN CONTAINER */}
-      <main className="flex min-h-screen flex-col lg:ml-[250px]">
+      <main className="flex min-h-screen flex-col lg:ml-[250px] relative z-10">
         {/* TOP BAR */}
-        <header className="flex h-[76px] shrink-0 items-center justify-between border-b border-white/10 bg-[#04111d]/90 backdrop-blur-md px-6 sticky top-0 z-20">
+        <header className="flex h-[76px] shrink-0 items-center justify-between border-b border-white/15 bg-[#181413]/95 backdrop-blur-xl px-6 sticky top-0 z-20 shadow-lg">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-white">EPL Admin Panel</h1>
-            <p className="text-xs text-[#d4a84f] font-semibold">ESDM Premier League • Tournament Operations</p>
+            <p className="text-xs text-[#f2c46a] font-bold">ESDM Premier League • Tournament Operations</p>
           </div>
 
           <div className="flex items-center gap-4">
             <Link
               href="/auction"
               target="_blank"
-              className="hidden sm:inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c53030] to-[#991b1b] px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-white shadow hover:brightness-110 transition"
+              className="hidden sm:inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f2c46a] via-[#f7d070] to-[#e0a838] px-4 py-2 text-xs font-black uppercase tracking-wider text-[#141110] shadow-md hover:brightness-110 transition border border-[#f2c46a]"
             >
               <FaGavel />
               <span>Live Arena</span>
@@ -258,19 +267,19 @@ const AdminDashboard = () => {
             <Link
               href="/"
               target="_blank"
-              className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 transition"
+              className="hidden md:inline-flex items-center gap-1.5 rounded-xl border-2 border-white/20 bg-white/5 px-3.5 py-2 text-xs font-bold text-white hover:bg-white/15 transition shadow-sm"
             >
               View Site
             </Link>
 
             <div className="hidden text-right text-xs sm:block">
-              <b className="block text-white font-mono">{session.email}</b>
-              <small className="block text-[#d4a84f] font-bold uppercase">
+              <b className="block text-white font-mono font-bold">{session.email}</b>
+              <small className="block text-[#f2c46a] font-black uppercase">
                 {session.role === "superadmin" ? "Super Admin" : "Admin"}
               </small>
             </div>
 
-            <i className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-[#d4a84f] to-[#a37424] font-black text-[#05131f] shadow-md not-italic">
+            <i className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-[#f2c46a] to-[#c89632] font-black text-[#141110] shadow-md not-italic border border-[#f2c46a]">
               {initials}
             </i>
           </div>
@@ -290,6 +299,10 @@ const AdminDashboard = () => {
             <AdminRegistrationRulesView />
           ) : activeSection === "Team Keys" ? (
             <AdminTeamKeysView />
+          ) : activeSection === "Fixtures Management" ? (
+            <AdminFixturesView />
+          ) : activeSection === "Tournament Gallery" ? (
+            <AdminGalleryView />
           ) : activeSection === "Change Password" ? (
             <AdminChangePasswordView />
           ) : activeSection === "Add Admin" ? (
@@ -302,77 +315,106 @@ const AdminDashboard = () => {
                   icon={FaUserCheck}
                   label="Total Players"
                   value={stats.totalPlayers}
-                  gradient="from-blue-600 to-indigo-800"
-                  textAccent="text-blue-300"
+                  gradient="from-[#aeac78] to-[#444721] text-white"
+                  textAccent="text-white"
                 />
                 <Stat
                   icon={FaShieldHalved}
                   label="Total Teams"
                   value={stats.totalTeams}
-                  gradient="from-amber-500 to-amber-700"
-                  textAccent="text-[#d4a84f]"
+                  gradient="from-[#f2c46a] to-[#c89632] text-[#141110]"
+                  textAccent="text-[#f2c46a]"
                 />
                 <Stat
                   icon={FaCalendarCheck}
                   label="Pending Players"
                   value={stats.pendingPlayers}
-                  gradient="from-red-600 to-red-800"
-                  textAccent="text-red-300"
+                  gradient="from-[#e2b353] to-[#989662] text-[#141110]"
+                  textAccent="text-white"
                 />
                 <Stat
                   icon={FaLayerGroup}
                   label="Auction Tiers"
                   value={stats.totalTiers}
-                  gradient="from-purple-600 to-purple-800"
-                  textAccent="text-purple-300"
+                  gradient="from-[#2c2422] to-[#120f0e] text-[#f2c46a]"
+                  textAccent="text-[#aeac78]"
                 />
               </div>
 
               {/* QUICK SHORTCUT CARDS */}
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#071927] to-[#030d17] p-6 shadow-xl">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#d4a84f]">
-                      Tournament Setup
-                    </span>
+              <div className="grid gap-5 md:grid-cols-3">
+                <div className="rounded-2xl border-2 border-white/20 bg-gradient-to-br from-[#241f1d] to-[#161211] p-6 shadow-xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span className="size-2.5 rounded-full bg-[#f2c46a] animate-pulse" />
+                      <span className="text-xs font-black uppercase tracking-wider text-[#f2c46a]">
+                        Tournament Setup
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-black text-white mb-2">
+                      Auction Tiers & Base Prices
+                    </h3>
+                    <p className="text-xs sm:text-sm font-medium leading-relaxed text-[#fcf0da] mb-6">
+                      Divide registered players into category tiers with baseline starting prices for the auction draft.
+                    </p>
                   </div>
-                  <h3 className="text-base font-extrabold text-white mb-2">
-                    Auction Tiers & Base Prices
-                  </h3>
-                  <p className="text-xs leading-relaxed text-slate-300 mb-5">
-                    Divide registered players into category tiers (e.g. Batsman Tier A, B, C) with baseline starting prices to prepare for the live auction draft.
-                  </p>
                   <button
                     type="button"
                     onClick={() => setActiveSection("Auction Tiers")}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#d4a84f] to-[#a37424] px-4 py-2.5 text-xs font-black uppercase tracking-wider text-[#05131f] hover:brightness-110 shadow-md cursor-pointer transition"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f2c46a] via-[#f7d070] to-[#e0a838] px-5 py-3 text-xs font-black uppercase tracking-wider text-[#141110] hover:brightness-110 shadow-lg cursor-pointer transition border border-[#f2c46a]"
                   >
                     <FaLayerGroup />
                     MANAGE AUCTION TIERS
                   </button>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#071927] to-[#030d17] p-6 shadow-xl">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="size-2 rounded-full bg-red-500 animate-ping" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-red-400">
-                      Live Broadcast
-                    </span>
+                <div className="rounded-2xl border-2 border-white/20 bg-gradient-to-br from-[#241f1d] to-[#161211] p-6 shadow-xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span className="size-2.5 rounded-full bg-[#aeac78] animate-ping" />
+                      <span className="text-xs font-black uppercase tracking-wider text-[#aeac78]">
+                        Live Broadcast
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-black text-white mb-2">
+                      Host Live Auction Arena
+                    </h3>
+                    <p className="text-xs sm:text-sm font-medium leading-relaxed text-[#fcf0da] mb-6">
+                      Start live bidding, advance players on the podium, pause the clock, and finalize team squads.
+                    </p>
                   </div>
-                  <h3 className="text-base font-extrabold text-white mb-2">
-                    Host Live Auction Arena
-                  </h3>
-                  <p className="text-xs leading-relaxed text-slate-300 mb-5">
-                    Start live bidding, advance players on the podium, manage hammer bids, pause the clock, and finalize team squads.
-                  </p>
                   <button
                     type="button"
                     onClick={() => setActiveSection("Live Auction")}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c53030] to-[#991b1b] px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white hover:brightness-110 shadow-md cursor-pointer transition"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#aeac78] hover:bg-[#c8c697] px-5 py-3 text-xs font-black uppercase tracking-wider text-[#141110] shadow-lg cursor-pointer transition border border-[#aeac78]"
                   >
                     <FaGavel />
-                    LAUNCH AUCTION CONTROLLER
+                    LAUNCH CONTROLLER
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border-2 border-white/20 bg-gradient-to-br from-[#241f1d] to-[#161211] p-6 shadow-xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span className="size-2.5 rounded-full bg-amber-400" />
+                      <span className="text-xs font-black uppercase tracking-wider text-amber-400">
+                        Media & Gallery
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-black text-white mb-2">
+                      Match & Tournament Photos
+                    </h3>
+                    <p className="text-xs sm:text-sm font-medium leading-relaxed text-[#fcf0da] mb-6">
+                      Upload and manage matchday photos, team celebrations, trophy ceremonies, and auction moments.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection("Tournament Gallery")}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-[#141110] hover:brightness-110 shadow-lg cursor-pointer transition border border-amber-400"
+                  >
+                    <FaCamera />
+                    MANAGE GALLERY
                   </button>
                 </div>
               </div>
@@ -381,9 +423,9 @@ const AdminDashboard = () => {
         </div>
 
         {/* FOOTER */}
-        <footer className="mt-auto flex shrink-0 flex-col sm:flex-row items-center justify-between border-t border-white/10 bg-[#020b13] px-6 py-4 text-xs text-slate-400 gap-2">
-          <span className="text-[#d4a84f] font-semibold flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <footer className="mt-auto flex shrink-0 flex-col sm:flex-row items-center justify-between border-t border-white/15 bg-[#120f0e] px-6 py-4 text-xs font-semibold text-white gap-2">
+          <span className="text-[#f2c46a] font-black flex items-center gap-2">
+            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
             System Status: All Systems Operational
           </span>
           <span>© EPL 2027 ESDM Premier League</span>
@@ -392,25 +434,25 @@ const AdminDashboard = () => {
 
       {/* LOGOUT CONFIRMATION MODAL */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-[380px] rounded-2xl border border-white/20 bg-gradient-to-b from-[#071927] to-[#030d17] p-6 text-center shadow-2xl">
-            <i className="mx-auto grid size-13 place-items-center rounded-2xl bg-red-500/20 border border-red-500/40 text-xl text-red-400 not-italic mb-4">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/85 p-4 backdrop-blur-md">
+          <div className="w-full max-w-[400px] rounded-3xl border-2 border-[#f2c46a] bg-[#1a1514] p-7 text-center shadow-2xl">
+            <i className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#f2c46a]/20 border border-[#f2c46a] text-2xl text-[#f2c46a] not-italic mb-4">
               <FaArrowRightFromBracket />
             </i>
-            <h2 className="text-base font-black text-white">Log out of Admin Panel?</h2>
-            <p className="mt-1.5 text-xs text-slate-400 leading-relaxed">
+            <h2 className="text-lg font-black text-white">Log out of Admin Panel?</h2>
+            <p className="mt-2 text-xs font-semibold text-[#fcf0da] leading-relaxed">
               You will need to sign in again with your admin credentials to access management controls.
             </p>
             <div className="mt-6 flex gap-3">
               <button
-                className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/10 cursor-pointer"
+                className="flex-1 rounded-xl border-2 border-white/20 bg-white/10 px-4 py-2.5 text-xs font-bold text-white hover:bg-white/20 cursor-pointer"
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
               >
                 Cancel
               </button>
               <button
-                className="flex-1 rounded-xl bg-gradient-to-r from-[#c53030] to-[#991b1b] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:brightness-110 shadow-lg cursor-pointer"
+                className="flex-1 rounded-xl bg-gradient-to-r from-[#f2c46a] to-[#c89632] px-4 py-2.5 text-xs font-black uppercase tracking-wider text-[#141110] hover:brightness-110 shadow-lg cursor-pointer border border-[#f2c46a]"
                 type="button"
                 onClick={logout}
               >

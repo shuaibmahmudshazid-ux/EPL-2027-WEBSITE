@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FaMagnifyingGlass,
+  FaPlus,
   FaRotateRight,
   FaTrash,
   FaXmark,
 } from "react-icons/fa6";
+import AuctionRoundStamp from "./auction-round-stamp";
 
 const statusBadge = {
   pending: "bg-[#856406] text-yellow-200",
@@ -23,10 +25,13 @@ const DetailRow = ({ label, value }) => (
   </div>
 );
 
-const PlayerDetailModal = ({ player, allTiers, onUpdateTier, onClose }) => {
+const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUpdateTeam, onClose }) => {
   const currentTierId =
     player.auctionTier?._id ||
     (typeof player.auctionTier === "string" ? player.auctionTier : "");
+  const currentTeamId =
+    player.team?._id ||
+    (typeof player.team === "string" ? player.team : "");
 
   return (
     <div
@@ -39,17 +44,28 @@ const PlayerDetailModal = ({ player, allTiers, onUpdateTier, onClose }) => {
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            {player.photoUrl ? (
-              <img
-                className="size-16 rounded-full object-cover"
-                src={player.photoUrl}
-                alt={player.fullName}
-              />
-            ) : (
-              <div className="grid size-16 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d]">
-                No Photo
-              </div>
-            )}
+            <div className="relative shrink-0">
+              {player.photoUrl ? (
+                <img
+                  className="size-16 rounded-full object-cover"
+                  src={player.photoUrl}
+                  alt={player.fullName}
+                />
+              ) : (
+                <div className="grid size-16 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d]">
+                  No Photo
+                </div>
+              )}
+              {["sold", "unsold"].includes((player.auctionStatus || "").toLowerCase()) && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none scale-75">
+                  <AuctionRoundStamp
+                    status={player.auctionStatus}
+                    size="xs"
+                    animated={false}
+                  />
+                </div>
+              )}
+            </div>
 
             <div>
               <h2 className="text-lg font-bold">
@@ -144,6 +160,27 @@ const PlayerDetailModal = ({ player, allTiers, onUpdateTier, onClose }) => {
             </select>
           </div>
         </div>
+
+        {/* QUICK TEAM ASSIGNMENT IN MODAL */}
+        <div className="mt-3 rounded border border-white/10 bg-[#02121f] p-3">
+          <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">
+            Assign / Change Team (Squad)
+          </label>
+          <div className="flex gap-2">
+            <select
+              className="flex-1 rounded border border-white/20 bg-[#031827] px-3 py-1.5 text-xs text-white outline-none focus:border-[#d4a84f]"
+              value={currentTeamId || "__unassign"}
+              onChange={(e) => onUpdateTeam(player._id, e.target.value)}
+            >
+              <option value="__unassign">Unassigned (Free Agent / No Team)</option>
+              {allTeams.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.name} (Key: {t.uniqueKey})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -171,8 +208,261 @@ const columns = [
   "Actions",
 ];
 
+const AddPlayerModal = ({ allTeams = [], allTiers = [], onClose, onPlayerCreated }) => {
+  const [fullName, setFullName] = useState("");
+  const [playerId, setPlayerId] = useState("");
+  const [phone, setPhone] = useState("");
+  const [session, setSession] = useState("2023-24");
+  const [registrationNumber, setRegistrationNumber] = useState("");
+  const [email, setEmail] = useState("");
+  const [categories, setCategories] = useState(["Batter"]);
+  const [teamId, setTeamId] = useState("");
+  const [tierId, setTierId] = useState("");
+  const [soldPrice, setSoldPrice] = useState("0");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!fullName.trim() || !playerId.trim() || !phone.trim() || !session) {
+      setError("Name, Student ID, Phone, and Session are required.");
+      return;
+    }
+    if (!categories.length) {
+      setError("Please select at least one category.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+
+      const res = await fetch("/api/players", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          playerId: playerId.trim(),
+          phone: phone.trim(),
+          registrationNumber: registrationNumber.trim() || undefined,
+          email: email.trim() || undefined,
+          session,
+          categories,
+          teamId: teamId || undefined,
+          tierId: tierId || undefined,
+          soldPrice: teamId ? Number(soldPrice) || 0 : undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create player.");
+
+      onPlayerCreated(data.player);
+      onClose();
+    } catch (err) {
+      setError(err.message || "Failed to create player.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="max-h-[92vh] w-full max-w-[580px] overflow-y-auto rounded-2xl border border-white/20 bg-[#031827] p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-[#d4a84f] to-[#997328] text-base text-black font-black">
+              <FaPlus />
+            </span>
+            <div>
+              <h2 className="text-lg font-bold text-white">Add New Player</h2>
+              <p className="text-xs text-[#8b979d]">Register player directly into the player pool or franchise squad</p>
+            </div>
+          </div>
+          <button
+            className="cursor-pointer rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"
+            type="button"
+            onClick={onClose}
+          >
+            <FaXmark className="text-lg" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-500/50 bg-red-950/70 p-3 text-xs text-red-200 font-semibold">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+          <div>
+            <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Full Name *</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Tamim Iqbal"
+              className="w-full rounded-xl border border-white/20 bg-[#02121f] px-3.5 py-2 text-white outline-none focus:border-[#d4a84f]"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Student ID (7 digits) *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. 2102001"
+                className="w-full rounded-xl border border-white/20 bg-[#02121f] px-3.5 py-2 text-white outline-none focus:border-[#d4a84f]"
+                value={playerId}
+                onChange={(e) => setPlayerId(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Phone (11 digits) *</label>
+              <input
+                type="text"
+                required
+                placeholder="01XXXXXXXXX"
+                className="w-full rounded-xl border border-white/20 bg-[#02121f] px-3.5 py-2 text-white outline-none focus:border-[#d4a84f]"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Reg. Number (5 digits)</label>
+              <input
+                type="text"
+                placeholder="e.g. 12345"
+                className="w-full rounded-xl border border-white/20 bg-[#02121f] px-3 py-2 text-white outline-none focus:border-[#d4a84f]"
+                value={registrationNumber}
+                onChange={(e) => setRegistrationNumber(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Session *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. 2023-24"
+                className="w-full rounded-xl border border-white/20 bg-[#02121f] px-3 py-2 text-white outline-none focus:border-[#d4a84f]"
+                value={session}
+                onChange={(e) => setSession(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Email</label>
+              <input
+                type="email"
+                placeholder="optional"
+                className="w-full rounded-xl border border-white/20 bg-[#02121f] px-3 py-2 text-white outline-none focus:border-[#d4a84f]"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Categories *</label>
+            <div className="flex flex-wrap gap-3">
+              {["Batter", "Bowler", "All-Rounder", "Wicket Keeper"].map((cat) => (
+                <label key={cat} className="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={categories.includes(cat)}
+                    onChange={(e) => {
+                      if (e.target.checked) setCategories([...categories, cat]);
+                      else setCategories(categories.filter((c) => c !== cat));
+                    }}
+                  />
+                  <span>{cat}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Assign to Team (Optional)</label>
+              <select
+                className="w-full rounded-xl border border-white/20 bg-[#02121f] px-3 py-2 text-white outline-none focus:border-[#d4a84f] cursor-pointer"
+                value={teamId}
+                onChange={(e) => setTeamId(e.target.value)}
+              >
+                <option value="">-- No Team (Free Agent) --</option>
+                {allTeams.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Auction Tier (Optional)</label>
+              <select
+                className="w-full rounded-xl border border-white/20 bg-[#02121f] px-3 py-2 text-white outline-none focus:border-[#d4a84f] cursor-pointer"
+                value={tierId}
+                onChange={(e) => setTierId(e.target.value)}
+              >
+                <option value="">-- No Tier --</option>
+                {allTiers.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.category}: {t.name} (Base: ৳ {t.basePrice})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {teamId && (
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Sold / Purchase Price (৳)</label>
+              <input
+                type="number"
+                min="0"
+                step="100"
+                className="w-full rounded-xl border border-white/20 bg-[#02121f] px-3 py-2 font-mono text-white outline-none focus:border-[#d4a84f]"
+                value={soldPrice}
+                onChange={(e) => setSoldPrice(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="cursor-pointer rounded-xl px-4 py-2 font-semibold text-slate-300 hover:bg-white/10"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-xl bg-gradient-to-r from-[#d4a84f] to-[#b8872f] px-5 py-2 font-bold text-black hover:brightness-110 disabled:opacity-40 cursor-pointer shadow-lg"
+            >
+              {submitting ? "Creating..." : "Create Player"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const AdminPlayersView = () => {
   const [players, setPlayers] = useState([]);
+  const [allTeams, setAllTeams] = useState([]);
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [allTiers, setAllTiers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -196,18 +486,21 @@ const AdminPlayersView = () => {
       setLoading(true);
       setError("");
 
-      const [playersRes, tiersRes] = await Promise.all([
+      const [playersRes, tiersRes, teamsRes] = await Promise.all([
         fetch("/api/players", { cache: "no-store" }),
         fetch("/api/admin/auction-tiers", { cache: "no-store" }),
+        fetch("/api/teams", { cache: "no-store" }),
       ]);
 
-      const [pText, tText] = await Promise.all([
+      const [pText, tText, tmText] = await Promise.all([
         playersRes.text(),
         tiersRes.text(),
+        teamsRes.text(),
       ]);
 
       const playersResult = pText ? JSON.parse(pText) : {};
       const tiersResult = tText ? JSON.parse(tText) : {};
+      const teamsResult = tmText ? JSON.parse(tmText) : {};
 
       if (!playersRes.ok) {
         throw new Error(playersResult.error || "Unable to load players.");
@@ -216,6 +509,9 @@ const AdminPlayersView = () => {
       setPlayers(playersResult.players || []);
       if (tiersRes.ok) {
         setAllTiers(tiersResult.tiers || []);
+      }
+      if (teamsRes.ok) {
+        setAllTeams(teamsResult.teams || []);
       }
     } catch (err) {
       setError(err.message || "Unable to load players.");
@@ -445,6 +741,46 @@ const AdminPlayersView = () => {
   };
 
   // =========================
+  // UPDATE TEAM
+  // =========================
+  const updatePlayerTeam = async (id, teamId, soldPrice) => {
+    setUpdatingId(id);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/players/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamId: teamId === "__unassign" ? null : teamId,
+          soldPrice: soldPrice !== undefined ? Number(soldPrice) : undefined,
+        }),
+      });
+
+      const text = await response.text();
+      const result = text ? JSON.parse(text) : {};
+
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to update player team.");
+      }
+
+      setPlayers((current) =>
+        current.map((player) =>
+          player._id === id ? result.player : player
+        )
+      );
+
+      if (selectedPlayer?._id === id) {
+        setSelectedPlayer(result.player);
+      }
+    } catch (err) {
+      setError(err.message || "Unable to update player team.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // =========================
   // DELETE PLAYER
   // =========================
   const deletePlayer = async (player) => {
@@ -505,15 +841,24 @@ const AdminPlayersView = () => {
   };
 
   return (
-    <section className="rounded-lg border border-[#b8a18055] bg-[#031827]/90 p-4 shadow-lg">
-      <h2 className="mb-4 flex items-center gap-2 font-sans text-sm font-bold tracking-wide">
-        <i className="size-2 rounded-full bg-[#c7963b]" />
-        ALL PLAYERS
-      </h2>
+    <section className="rounded-2xl border border-[#aeac78]/30 bg-gradient-to-br from-[#383230]/95 to-[#241f1e]/95 p-5 sm:p-6 shadow-xl backdrop-blur-xl text-[#fcf0da]">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 font-sans text-sm font-black tracking-wide text-[#fcf0da]">
+          <i className="size-2 rounded-full bg-[#f2c46a] animate-pulse not-italic" />
+          ALL PLAYERS
+        </h2>
+        <button
+          type="button"
+          onClick={() => setShowAddPlayerModal(true)}
+          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f2c46a] via-[#e2b353] to-[#c89632] px-3.5 py-1.5 text-xs font-black uppercase text-[#221d1c] hover:brightness-110 cursor-pointer shadow-md"
+        >
+          <FaPlus /> Add New Player
+        </button>
+      </div>
 
       {/* FILTERS */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded border border-white/25 bg-[#02121f] px-3 py-2 text-xs text-[#aeb9bf]">
+        <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-[#aeac78]/30 bg-[#25201e] px-3 py-2 text-xs text-[#aeac78]">
           <FaMagnifyingGlass />
 
           <input
@@ -676,15 +1021,26 @@ const AdminPlayersView = () => {
                   </td>
 
                   <td className="px-2 py-2">
-                    {p.photoUrl ? (
-                      <img
-                        className="size-8 rounded-full object-cover"
-                        src={p.photoUrl}
-                        alt={p.fullName}
-                      />
-                    ) : (
-                      "—"
-                    )}
+                    <div className="relative inline-block shrink-0">
+                      {p.photoUrl ? (
+                        <img
+                          className="size-8 rounded-full object-cover"
+                          src={p.photoUrl}
+                          alt={p.fullName}
+                        />
+                      ) : (
+                        "—"
+                      )}
+                      {["sold", "unsold"].includes((p.auctionStatus || "").toLowerCase()) && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none scale-75">
+                          <AuctionRoundStamp
+                            status={p.auctionStatus}
+                            size="xs"
+                            animated={false}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </td>
 
                   <td className="whitespace-nowrap px-2 py-2 font-medium">
@@ -836,11 +1192,25 @@ const AdminPlayersView = () => {
         </table>
       </div>
 
+      {showAddPlayerModal && (
+        <AddPlayerModal
+          allTeams={allTeams}
+          allTiers={allTiers}
+          onClose={() => setShowAddPlayerModal(false)}
+          onPlayerCreated={(newP) => {
+            setPlayers((prev) => [newP, ...prev]);
+            loadData();
+          }}
+        />
+      )}
+
       {selectedPlayer && (
         <PlayerDetailModal
           player={selectedPlayer}
           allTiers={allTiers}
+          allTeams={allTeams}
           onUpdateTier={updatePlayerTier}
+          onUpdateTeam={updatePlayerTeam}
           onClose={() =>
             setSelectedPlayer(null)
           }

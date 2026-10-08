@@ -45,6 +45,23 @@ export const POST = async (request) => {
       return Response.json({ error: "Team not found." }, { status: 404 });
     }
 
+    // Rule: After acquiring a player in a tier, the same team cannot bid until next tier
+    const alreadyAcquiredInTier = (state.players || []).find(
+      (p) =>
+        p.status === "sold" &&
+        p.soldToTeam &&
+        p.soldToTeam.toString() === teamId.toString()
+    );
+
+    if (alreadyAcquiredInTier) {
+      return Response.json(
+        {
+          error: `Tier Quota Reached: ${team.name} already acquired ${alreadyAcquiredInTier.fullName} in this tier (${state.tierName || "Current Tier"}). You cannot bid again until the next tier begins!`,
+        },
+        { status: 400 }
+      );
+    }
+
     const pointsSpent = (team.players || []).reduce(
       (sum, p) => sum + (Number(p.soldPrice) || 0),
       0
