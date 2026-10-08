@@ -20,7 +20,6 @@ import {
   FaExpand,
 } from "react-icons/fa6";
 import PlayerStageRevealCard from "./player-stage-reveal-card";
-import AuctionRoundStamp from "./auction-round-stamp";
 
 const safeParse = async (response) => {
   try {
@@ -504,15 +503,6 @@ const AdminLiveAuctionView = () => {
                     </div>
                   )}
 
-                  {["sold", "unsold"].includes((state.hammerStatus || "").toLowerCase()) && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <AuctionRoundStamp
-                        status={state.hammerStatus}
-                        size="sm"
-                        price={state.hammerStatus === "sold" ? state.currentBid : null}
-                      />
-                    </div>
-                  )}
                 </div>
 
                 <div>
@@ -885,15 +875,6 @@ const AdminLiveAuctionView = () => {
                           ) : (
                             <div className="grid size-7 place-items-center rounded-full bg-white/10 text-[9px] font-bold">
                               {item.fullName.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                          {["sold", "unsold"].includes((item.status || "").toLowerCase()) && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none scale-75">
-                              <AuctionRoundStamp
-                                status={item.status}
-                                size="xs"
-                                animated={false}
-                              />
                             </div>
                           )}
                         </div>

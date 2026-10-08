@@ -8,7 +8,6 @@ import {
   FaTrash,
   FaXmark,
 } from "react-icons/fa6";
-import AuctionRoundStamp from "./auction-round-stamp";
 
 const statusBadge = {
   pending: "bg-[#856406] text-yellow-200",
@@ -54,15 +53,6 @@ const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUp
               ) : (
                 <div className="grid size-16 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d]">
                   No Photo
-                </div>
-              )}
-              {["sold", "unsold"].includes((player.auctionStatus || "").toLowerCase()) && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none scale-75">
-                  <AuctionRoundStamp
-                    status={player.auctionStatus}
-                    size="xs"
-                    animated={false}
-                  />
                 </div>
               )}
             </div>
@@ -1021,26 +1011,15 @@ const AdminPlayersView = () => {
                   </td>
 
                   <td className="px-2 py-2">
-                    <div className="relative inline-block shrink-0">
-                      {p.photoUrl ? (
-                        <img
-                          className="size-8 rounded-full object-cover"
-                          src={p.photoUrl}
-                          alt={p.fullName}
-                        />
-                      ) : (
-                        "—"
-                      )}
-                      {["sold", "unsold"].includes((p.auctionStatus || "").toLowerCase()) && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none scale-75">
-                          <AuctionRoundStamp
-                            status={p.auctionStatus}
-                            size="xs"
-                            animated={false}
-                          />
-                        </div>
-                      )}
-                    </div>
+                    {p.photoUrl ? (
+                      <img
+                        className="size-8 rounded-full object-cover"
+                        src={p.photoUrl}
+                        alt={p.fullName}
+                      />
+                    ) : (
+                      "—"
+                    )}
                   </td>
 
                   <td className="whitespace-nowrap px-2 py-2 font-medium">
