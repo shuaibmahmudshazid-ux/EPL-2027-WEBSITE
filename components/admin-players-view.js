@@ -8,6 +8,11 @@ import {
   FaTrash,
   FaXmark,
 } from "react-icons/fa6";
+import ExportButtonGroup from "./export-button-group";
+import {
+  exportPlayersToPdf,
+  exportPlayersToExcel,
+} from "../lib/export-utils";
 
 const statusBadge = {
   pending: "bg-[#856406] text-yellow-200",
@@ -83,14 +88,36 @@ const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUp
             </div>
           </div>
 
-          <button
-            className="rounded p-1.5 text-[#9faab2] hover:text-white"
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <FaXmark className="text-lg" />
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportButtonGroup
+              label="Download Slip"
+              variant="compact"
+              align="right"
+              pdfLabel="Download profile slip as PDF"
+              excelLabel="Download profile data as Excel"
+              onExportPdf={() => {
+                exportPlayersToPdf([player], {
+                  title: `PLAYER PROFILE - ${player.fullName}`,
+                  filterDescription: `Student ID: ${player.playerId} • Session: ${player.session}`,
+                });
+              }}
+              onExportExcel={() => {
+                const cleanName = (player.fullName || "Player").replace(/[^a-zA-Z0-9_-]/g, "_");
+                exportPlayersToExcel([player], {
+                  fileName: `EPL_2027_Player_${cleanName}.xlsx`,
+                });
+              }}
+            />
+
+            <button
+              className="rounded p-1.5 text-[#9faab2] hover:text-white cursor-pointer"
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <FaXmark className="text-lg" />
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-x-4 min-[520px]:grid-cols-2">
@@ -833,17 +860,56 @@ const AdminPlayersView = () => {
   return (
     <section className="rounded-2xl border border-[#aeac78]/30 bg-gradient-to-br from-[#383230]/95 to-[#241f1e]/95 p-5 sm:p-6 shadow-xl backdrop-blur-xl text-[#fcf0da]">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-sans text-sm font-black tracking-wide text-[#fcf0da]">
-          <i className="size-2 rounded-full bg-[#f2c46a] animate-pulse not-italic" />
-          ALL PLAYERS
-        </h2>
-        <button
-          type="button"
-          onClick={() => setShowAddPlayerModal(true)}
-          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f2c46a] via-[#e2b353] to-[#c89632] px-3.5 py-1.5 text-xs font-black uppercase text-[#221d1c] hover:brightness-110 cursor-pointer shadow-md"
-        >
-          <FaPlus /> Add New Player
-        </button>
+        <div className="flex items-center gap-2.5">
+          <h2 className="flex items-center gap-2 font-sans text-sm font-black tracking-wide text-[#fcf0da]">
+            <i className="size-2 rounded-full bg-[#f2c46a] animate-pulse not-italic" />
+            ALL PLAYERS
+          </h2>
+          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold text-[#aeac78]">
+            {filtered.length} {filtered.length === 1 ? "player" : "players"}
+            {hasFilters && ` (of ${players.length})`}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <ExportButtonGroup
+            label="Download Players"
+            count={filtered.length}
+            variant="outline"
+            pdfLabel={`Export ${filtered.length} player(s) as PDF`}
+            excelLabel={`Export ${filtered.length} player(s) as Excel (.xlsx)`}
+            onExportPdf={() => {
+              const filterText = hasFilters
+                ? `Filtered by: ${[
+                    session && `Session: ${session}`,
+                    category && `Category: ${category}`,
+                    tier && `Tier: ${tier}`,
+                    status && `Status: ${status}`,
+                    team && `Team: ${team}`,
+                    search && `Query: "${search}"`,
+                  ]
+                    .filter(Boolean)
+                    .join(" • ")}`
+                : "All registered tournament players";
+
+              exportPlayersToPdf(filtered, {
+                title: "Official Players Registry",
+                filterDescription: filterText,
+              });
+            }}
+            onExportExcel={() => {
+              exportPlayersToExcel(filtered);
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => setShowAddPlayerModal(true)}
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f2c46a] via-[#e2b353] to-[#c89632] px-3.5 py-1.5 text-xs font-black uppercase text-[#221d1c] hover:brightness-110 cursor-pointer shadow-md"
+          >
+            <FaPlus /> Add New Player
+          </button>
+        </div>
       </div>
 
       {/* FILTERS */}

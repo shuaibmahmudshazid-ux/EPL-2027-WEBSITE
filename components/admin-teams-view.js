@@ -12,6 +12,13 @@ import {
   FaUserMinus,
   FaUserPlus,
 } from "react-icons/fa6";
+import ExportButtonGroup from "./export-button-group";
+import {
+  exportTeamsToPdf,
+  exportTeamsToExcel,
+  exportSingleTeamToPdf,
+  exportSingleTeamToExcel,
+} from "../lib/export-utils";
 
 const statusBadge = {
   active: "bg-[#76511d] text-[#f2d590]",
@@ -858,7 +865,21 @@ const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTea
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <ExportButtonGroup
+              label="Download Team Sheet"
+              variant="compact"
+              align="right"
+              pdfLabel="Download team & roster as PDF"
+              excelLabel="Download team & roster as Excel"
+              onExportPdf={() => {
+                exportSingleTeamToPdf(currentTeam, squadPlayers);
+              }}
+              onExportExcel={() => {
+                exportSingleTeamToExcel(currentTeam, squadPlayers);
+              }}
+            />
+
             <button
               className="cursor-pointer rounded-lg bg-red-950/70 border border-red-500/40 px-2.5 py-1.5 text-xs font-bold text-red-300 hover:bg-red-900/80 hover:text-white"
               type="button"
@@ -1044,13 +1065,27 @@ const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTea
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowAddPlayerModal(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#d4a84f] to-[#b8872f] px-3 py-1.5 text-xs font-bold text-black hover:brightness-110 cursor-pointer shadow-md"
-            >
-              <FaPlus /> Add Player
-            </button>
+            <div className="flex items-center gap-2">
+              {squadPlayers.length > 0 && (
+                <ExportButtonGroup
+                  label="Download Squad"
+                  count={squadPlayers.length}
+                  variant="compact"
+                  pdfLabel={`Export ${squadPlayers.length} squad player(s) as PDF`}
+                  excelLabel={`Export ${squadPlayers.length} squad player(s) as Excel`}
+                  onExportPdf={() => exportSingleTeamToPdf(currentTeam, squadPlayers)}
+                  onExportExcel={() => exportSingleTeamToExcel(currentTeam, squadPlayers)}
+                />
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowAddPlayerModal(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#d4a84f] to-[#b8872f] px-3 py-1.5 text-xs font-bold text-black hover:brightness-110 cursor-pointer shadow-md"
+              >
+                <FaPlus /> Add Player
+              </button>
+            </div>
           </div>
 
           {squadPlayers.length === 0 ? (
@@ -1271,7 +1306,24 @@ const AdminTeamsView = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <ExportButtonGroup
+            label="Download Teams"
+            count={filtered.length}
+            variant="outline"
+            pdfLabel={`Export ${filtered.length} team(s) overview as PDF`}
+            excelLabel={`Export ${filtered.length} team(s) & squads as Excel (.xlsx)`}
+            onExportPdf={() => {
+              exportTeamsToPdf(filtered, allPlayers, {
+                title: "Official Teams & Franchises Directory",
+                filterDescription: search ? `Filtered by search: "${search}"` : "All registered tournament franchises",
+              });
+            }}
+            onExportExcel={() => {
+              exportTeamsToExcel(filtered, allPlayers);
+            }}
+          />
+
           <button
             type="button"
             onClick={loadData}

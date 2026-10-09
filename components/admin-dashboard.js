@@ -31,6 +31,13 @@ import AdminTeamKeysView from "./admin-team-keys-view";
 import AdminTeamsView from "./admin-teams-view";
 import AdminGalleryView from "./admin-gallery-view";
 import AdminFixturesView from "./admin-fixtures-view";
+import ExportButtonGroup from "./export-button-group";
+import {
+  exportPlayersToPdf,
+  exportPlayersToExcel,
+  exportTeamsToPdf,
+  exportTeamsToExcel,
+} from "../lib/export-utils";
 
 const menu = [
   { label: "Dashboard", icon: FaChartBar },
@@ -139,6 +146,44 @@ const AdminDashboard = () => {
     await fetch("/api/admin/logout", { method: "POST" });
     setSession(null);
     setActiveSection("Dashboard");
+  };
+
+  const handleDownloadPlayersPdf = async () => {
+    const res = await fetch("/api/players");
+    const data = await res.json();
+    exportPlayersToPdf(data.players || [], {
+      title: "Official Players Registry",
+      filterDescription: "EPL 2027 Tournament Roster",
+    });
+  };
+
+  const handleDownloadPlayersExcel = async () => {
+    const res = await fetch("/api/players");
+    const data = await res.json();
+    exportPlayersToExcel(data.players || []);
+  };
+
+  const handleDownloadTeamsPdf = async () => {
+    const [tRes, pRes] = await Promise.all([
+      fetch("/api/teams"),
+      fetch("/api/players"),
+    ]);
+    const tData = await tRes.json();
+    const pData = await pRes.json();
+    exportTeamsToPdf(tData.teams || [], pData.players || [], {
+      title: "Official Teams & Franchises Directory",
+      filterDescription: "EPL 2027 Tournament Directory",
+    });
+  };
+
+  const handleDownloadTeamsExcel = async () => {
+    const [tRes, pRes] = await Promise.all([
+      fetch("/api/teams"),
+      fetch("/api/players"),
+    ]);
+    const tData = await tRes.json();
+    const pData = await pRes.json();
+    exportTeamsToExcel(tData.teams || [], pData.players || []);
   };
 
   if (session === undefined) {
@@ -339,6 +384,39 @@ const AdminDashboard = () => {
                   gradient="from-[#2c2422] to-[#120f0e] text-[#f2c46a]"
                   textAccent="text-[#aeac78]"
                 />
+              </div>
+
+              {/* DATA EXPORT BANNER */}
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#aeac78]/30 bg-gradient-to-r from-[#241f1d] via-[#1c1716] to-[#241f1d] p-5 shadow-lg backdrop-blur-xl">
+                <div>
+                  <h3 className="font-sans text-sm font-black tracking-wide text-white flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-[#f2c46a] animate-pulse" />
+                    TOURNAMENT DATA EXPORTS
+                  </h3>
+                  <p className="text-xs text-[#aeac78] mt-0.5">
+                    Download complete tournament datasets in PDF documents or Excel spreadsheets (.xlsx)
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <ExportButtonGroup
+                    label="Download Players Info"
+                    variant="gold"
+                    pdfLabel="Download all registered players (PDF)"
+                    excelLabel="Download players registry (Excel .xlsx)"
+                    onExportPdf={handleDownloadPlayersPdf}
+                    onExportExcel={handleDownloadPlayersExcel}
+                  />
+
+                  <ExportButtonGroup
+                    label="Download Teams & Squads"
+                    variant="outline"
+                    pdfLabel="Download all teams directory (PDF)"
+                    excelLabel="Download teams & squad rosters (Excel .xlsx)"
+                    onExportPdf={handleDownloadTeamsPdf}
+                    onExportExcel={handleDownloadTeamsExcel}
+                  />
+                </div>
               </div>
 
               {/* QUICK SHORTCUT CARDS */}

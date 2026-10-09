@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FaArrowRight, FaGavel } from "react-icons/fa6";
 import TeamCrest from "./team-crest";
+import ExportButtonGroup from "./export-button-group";
+import {
+  exportTeamsToPdf,
+  exportTeamsToExcel,
+  exportSingleTeamToPdf,
+  exportSingleTeamToExcel,
+} from "../lib/export-utils";
 
 export default function TournamentTeamsSection() {
   const [teams, setTeams] = useState([]);
@@ -46,6 +53,24 @@ export default function TournamentTeamsSection() {
             Elite squads battling for glory at Patuakhali Science and Technology University. 
             View team emblems, squad rosters, and live purse points.
           </p>
+
+          <div className="mt-4 flex justify-center">
+            <ExportButtonGroup
+              label="Download Teams Directory"
+              variant="outline"
+              pdfLabel="Download official team directory as PDF"
+              excelLabel="Download official teams & rosters as Excel"
+              onExportPdf={() => {
+                exportTeamsToPdf(teams, [], {
+                  title: "Official Participating Franchises",
+                  filterDescription: "EPL 2027 Tournament Directory",
+                });
+              }}
+              onExportExcel={() => {
+                exportTeamsToExcel(teams, []);
+              }}
+            />
+          </div>
         </div>
 
         {/* Teams Grid - Large cards, circular emblems, prominent names */}
@@ -87,13 +112,25 @@ export default function TournamentTeamsSection() {
                     {team.pointsRemaining?.toLocaleString()} PTS
                   </span>
                 </div>
-                <Link
-                  href="/auction"
-                  className="inline-flex items-center gap-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:text-white transition-all"
-                >
-                  <span>Auction</span>
-                  <FaArrowRight className="text-[9px]" />
-                </Link>
+
+                <div className="flex items-center gap-1.5">
+                  <ExportButtonGroup
+                    label="Roster"
+                    variant="compact"
+                    pdfLabel="Download squad roster as PDF"
+                    excelLabel="Download squad roster as Excel"
+                    onExportPdf={() => exportSingleTeamToPdf(team, team.players || [])}
+                    onExportExcel={() => exportSingleTeamToExcel(team, team.players || [])}
+                  />
+
+                  <Link
+                    href="/auction"
+                    className="inline-flex items-center gap-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:text-white transition-all"
+                  >
+                    <span>Auction</span>
+                    <FaArrowRight className="text-[9px]" />
+                  </Link>
+                </div>
               </div>
 
             </div>
