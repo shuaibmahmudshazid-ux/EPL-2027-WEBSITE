@@ -174,24 +174,24 @@ export default function SchedulePage() {
                       </span>
                     </div>
 
-                    {/* Team Versus Layout */}
-                    <div className="grid grid-cols-12 gap-2 sm:gap-3 items-center my-3 sm:my-4">
+                    {/* Team Versus Layout (Larger section with circular icons) */}
+                    <div className="grid grid-cols-12 gap-2 sm:gap-4 items-center my-4 sm:my-5">
                       {/* Team 1 */}
                       <div className="col-span-5 flex flex-col items-center sm:items-start text-center sm:text-left">
-                        <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3.5">
                           <div
-                            className={`size-10 sm:size-12 rounded-xl sm:rounded-2xl bg-gradient-to-br ${
+                            className={`size-14 sm:size-16 md:size-20 rounded-full bg-gradient-to-br ${
                               match.team1?.color || "from-blue-600 to-indigo-900"
-                            } border border-white/20 flex items-center justify-center font-black text-xs sm:text-sm text-white shadow-lg shrink-0`}
+                            } border-2 border-white/30 ring-2 ring-blue-500/30 flex items-center justify-center font-black text-sm sm:text-lg text-white shadow-xl shrink-0 group-hover:scale-105 transition-transform duration-300`}
                           >
                             {match.team1?.short || match.team1?.name?.slice(0, 3)}
                           </div>
                           <div className="min-w-0">
-                            <b className="block font-sans font-black text-xs sm:text-base text-white leading-tight truncate">
+                            <b className="block font-sans font-black text-sm sm:text-lg text-white leading-tight truncate">
                               {match.team1?.name}
                             </b>
                             {match.team1?.session && (
-                              <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
+                              <span className="text-[10px] sm:text-xs text-slate-400 font-semibold mt-0.5 block">
                                 {match.team1.session}
                               </span>
                             )}
@@ -201,28 +201,28 @@ export default function SchedulePage() {
 
                       {/* VS Badge */}
                       <div className="col-span-2 flex flex-col items-center justify-center">
-                        <span className="size-7 sm:size-8 rounded-full bg-white/10 border border-white/15 flex items-center justify-center font-black text-[10px] sm:text-xs text-amber-400 shadow-inner">
+                        <span className="size-8 sm:size-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center font-black text-xs sm:text-sm text-amber-400 shadow-inner">
                           VS
                         </span>
                       </div>
 
                       {/* Team 2 */}
                       <div className="col-span-5 flex flex-col items-center sm:items-end text-center sm:text-right">
-                        <div className="flex items-center justify-end gap-2 sm:gap-3">
+                        <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2 sm:gap-3.5">
                           <div className="min-w-0">
-                            <b className="block font-sans font-black text-xs sm:text-base text-white leading-tight truncate">
+                            <b className="block font-sans font-black text-sm sm:text-lg text-white leading-tight truncate">
                               {match.team2?.name}
                             </b>
                             {match.team2?.session && (
-                              <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
+                              <span className="text-[10px] sm:text-xs text-slate-400 font-semibold mt-0.5 block">
                                 {match.team2.session}
                               </span>
                             )}
                           </div>
                           <div
-                            className={`size-10 sm:size-12 rounded-xl sm:rounded-2xl bg-gradient-to-br ${
+                            className={`size-14 sm:size-16 md:size-20 rounded-full bg-gradient-to-br ${
                               match.team2?.color || "from-amber-600 to-yellow-800"
-                            } border border-white/20 flex items-center justify-center font-black text-xs sm:text-sm text-white shadow-lg shrink-0`}
+                            } border-2 border-white/30 ring-2 ring-amber-500/30 flex items-center justify-center font-black text-sm sm:text-lg text-white shadow-xl shrink-0 group-hover:scale-105 transition-transform duration-300`}
                           >
                             {match.team2?.short || match.team2?.name?.slice(0, 3)}
                           </div>

@@ -207,12 +207,12 @@ const AddTeamModal = ({ onClose, onTeamCreated }) => {
               Team Logo (JPG/PNG, max 2MB)
             </label>
             <div className="flex items-center gap-4">
-              <div className="grid size-14 place-items-center rounded-xl border border-dashed border-white/20 bg-[#02121f] overflow-hidden">
+              <div className="grid size-16 place-items-center rounded-full border-2 border-dashed border-amber-500/40 bg-[#02121f] overflow-hidden shadow-md ring-2 ring-amber-500/20 shrink-0">
                 {logoPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoPreview} alt="Preview" className="size-full object-cover" />
+                  <img src={logoPreview} alt="Preview" className="size-full object-cover rounded-full" />
                 ) : (
-                  <span className="text-[10px] text-[#8b979d] text-center px-1">No Logo</span>
+                  <span className="text-[10px] text-[#8b979d] text-center px-1 font-semibold">No Logo</span>
                 )}
               </div>
               <input
@@ -832,21 +832,21 @@ const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTea
       >
         {/* HEADER */}
         <div className="mb-4 flex items-start justify-between gap-3 border-b border-white/10 pb-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {currentTeam.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                className="size-16 rounded-full object-cover border border-white/20 shadow-md"
+                className="size-20 sm:size-24 rounded-full object-cover border-2 border-amber-500/50 shadow-xl ring-2 ring-amber-500/20 shrink-0"
                 src={currentTeam.logoUrl}
                 alt={currentTeam.name}
               />
             ) : (
-              <div className="grid size-16 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d] border border-white/10 font-bold">
+              <div className="grid size-20 sm:size-24 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d] border-2 border-amber-500/30 font-bold shrink-0">
                 No Logo
               </div>
             )}
             <div>
-              <h2 className="text-xl font-black text-white">{currentTeam.name}</h2>
+              <h2 className="text-2xl sm:text-3xl font-black text-white uppercase drop-shadow">{currentTeam.name}</h2>
               <div className="mt-1 flex items-center gap-2">
                 <b className={`rounded px-1.5 py-0.5 text-[10px] capitalize ${statusBadge[currentTeam.status]}`}>
                   {currentTeam.status}

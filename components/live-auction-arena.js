@@ -415,15 +415,15 @@ export default function LiveAuctionArena() {
 
               {/* Franchise Team Login */}
               {biddingTeam ? (
-                <div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300">
-                  <TeamCrest name={biddingTeam.name} className="size-4" />
-                  <span className="truncate max-w-[120px]">{biddingTeam.name}</span>
+                <div className="flex items-center gap-2.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold text-amber-300 shadow-md">
+                  <TeamCrest name={biddingTeam.name} logoUrl={biddingTeam.logoUrl} className="size-6" />
+                  <span className="truncate max-w-[140px] font-extrabold">{biddingTeam.name}</span>
                   <button
                     onClick={handleLogoutTeam}
-                    className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer"
+                    className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer transition-colors"
                     title="Logout Team"
                   >
-                    <FaRightFromBracket className="text-[10px]" />
+                    <FaRightFromBracket className="text-[11px]" />
                   </button>
                 </div>
               ) : (
@@ -465,29 +465,38 @@ export default function LiveAuctionArena() {
           </div>
 
           {/* Teams Registered (Only shows real teams if admin has added them) */}
-          <div className="mt-8 mb-6">
-            <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-200 mb-3 flex items-center gap-2">
-              TEAM PURSES {teamsList.length > 0 && `(${teamsList.length})`}
-            </h2>
+          <div className="mt-10 mb-8 w-full">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
+              <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-100 flex items-center gap-2.5">
+                <span className="size-2.5 rounded-full bg-amber-400 animate-pulse" />
+                <span>PARTICIPATING TEAMS &amp; PURSES {teamsList.length > 0 && `(${teamsList.length})`}</span>
+              </h2>
+              <span className="text-[11px] font-mono text-slate-400">Official Franchise Squads</span>
+            </div>
 
             {teamsList.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-3.5">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
                 {teamsList.map((team, idx) => (
                   <div
                     key={team._id || idx}
-                    className={`relative rounded-2xl border ${team.borderClass} bg-gradient-to-b ${team.cardBg} p-3.5 sm:p-4 text-center backdrop-blur-xl shadow-lg flex flex-col items-center justify-between min-h-[145px]`}
+                    className={`relative rounded-3xl border-2 ${team.borderClass} bg-gradient-to-b ${team.cardBg} p-5 sm:p-6 text-center backdrop-blur-xl shadow-2xl flex flex-col items-center justify-between min-h-[220px] sm:min-h-[250px] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_45px_rgba(0,0,0,0.7)] group`}
                   >
-                    <div className="my-1">
-                      <TeamCrest name={team.name} logoUrl={team.logoUrl} className="size-11 sm:size-12" />
+                    {/* Team Icon in large circle */}
+                    <div className="my-2 group-hover:scale-105 transition-transform duration-300">
+                      <TeamCrest name={team.name} logoUrl={team.logoUrl} className="size-20 sm:size-24 md:size-28" />
                     </div>
-                    <h3 className="font-sans font-black text-xs sm:text-sm text-white uppercase tracking-tight leading-tight mt-1 truncate w-full">
+
+                    {/* Team Name - Larger & bold typography */}
+                    <h3 className="font-sans font-black text-sm sm:text-base md:text-lg text-white uppercase tracking-tight leading-snug mt-2 text-center w-full px-1 drop-shadow-md">
                       {team.name}
                     </h3>
-                    <div className="mt-2 w-full pt-2 border-t border-white/10">
-                      <span className="block text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-slate-400">
+
+                    {/* Purse Section */}
+                    <div className="mt-3.5 w-full pt-3 border-t border-white/10">
+                      <span className="block text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-400">
                         REMAINING PURSES
                       </span>
-                      <span className="block font-mono text-xs sm:text-sm font-black text-amber-400 mt-0.5">
+                      <span className="block font-mono text-sm sm:text-base md:text-lg font-black text-amber-400 drop-shadow-[0_0_12px_rgba(245,158,11,0.5)] mt-0.5">
                         {team.pointsRemaining?.toLocaleString()} PTS
                       </span>
                     </div>
@@ -495,7 +504,7 @@ export default function LiveAuctionArena() {
                 ))}
               </div>
             ) : (
-              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 text-center text-xs text-slate-500 italic">
+              <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-10 text-center text-xs text-slate-500 italic">
                 No teams registered yet. Teams will appear here once added by administrators.
               </div>
             )}
@@ -573,15 +582,15 @@ export default function LiveAuctionArena() {
 
               {/* Team Manager Login / Status */}
               {biddingTeam ? (
-                <div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300">
-                  <TeamCrest name={biddingTeam.name} className="size-4" />
-                  <span className="truncate max-w-[120px]">{biddingTeam.name}</span>
+                <div className="flex items-center gap-2.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold text-amber-300 shadow-md">
+                  <TeamCrest name={biddingTeam.name} logoUrl={biddingTeam.logoUrl} className="size-6" />
+                  <span className="truncate max-w-[140px] font-extrabold">{biddingTeam.name}</span>
                   <button
                     onClick={handleLogoutTeam}
-                    className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer"
+                    className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer transition-colors"
                     title="Logout Team"
                   >
-                    <FaRightFromBracket className="text-[10px]" />
+                    <FaRightFromBracket className="text-[11px]" />
                   </button>
                 </div>
               ) : (
@@ -713,18 +722,25 @@ export default function LiveAuctionArena() {
                           </strong>
 
                           {/* Leading Bidder Team */}
-                          <div className="mt-2.5 flex items-center gap-2 text-xs sm:text-sm font-black uppercase text-slate-200">
+                          <div className="mt-3 flex items-center gap-3 text-sm sm:text-base font-black uppercase text-slate-100 bg-white/5 border border-white/10 rounded-2xl px-3.5 py-2 shadow-inner">
                             {activePlayer.currentBidderTeamName ? (
                               <>
                                 <TeamCrest
                                   name={activePlayer.currentBidderTeamName}
                                   logoUrl={activePlayer.currentBidderTeamLogo}
-                                  className="size-5"
+                                  className="size-8 sm:size-10"
                                 />
-                                <span className="truncate max-w-[150px]">{activePlayer.currentBidderTeamName}</span>
+                                <div className="min-w-0">
+                                  <span className="block text-[9px] uppercase tracking-wider font-extrabold text-amber-400">
+                                    LEADING BIDDER
+                                  </span>
+                                  <span className="block truncate font-black text-sm sm:text-base text-white max-w-[200px]">
+                                    {activePlayer.currentBidderTeamName}
+                                  </span>
+                                </div>
                               </>
                             ) : (
-                              <span className="text-slate-400 font-semibold italic text-xs">
+                              <span className="text-slate-400 font-semibold italic text-xs py-1">
                                 Waiting for Opening Bid
                               </span>
                             )}
@@ -911,31 +927,38 @@ export default function LiveAuctionArena() {
           {/* ======================================================== */}
           {/* ROW 2: TEAM PURSES                                       */}
           {/* ======================================================== */}
-          <div className="mb-6 sm:mb-8">
-            <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-200 mb-2.5 flex items-center gap-2">
-              TEAM PURSES {teamsList.length > 0 && `(${teamsList.length})`}
-            </h2>
+          <div className="mb-8 sm:mb-10 w-full">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
+              <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-100 flex items-center gap-2.5">
+                <span className="size-2.5 rounded-full bg-amber-400 animate-pulse" />
+                <span>TEAM PURSES {teamsList.length > 0 && `(${teamsList.length})`}</span>
+              </h2>
+              <span className="text-[11px] font-mono text-slate-400">Live Team Balances</span>
+            </div>
 
             {teamsList.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-3.5">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
                 {teamsList.map((team, idx) => (
                   <div
                     key={team._id || idx}
-                    className={`relative rounded-2xl border ${team.borderClass} bg-gradient-to-b ${team.cardBg} p-3.5 sm:p-4 text-center backdrop-blur-xl shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl flex flex-col items-center justify-between min-h-[145px]`}
+                    className={`relative rounded-3xl border-2 ${team.borderClass} bg-gradient-to-b ${team.cardBg} p-5 sm:p-6 text-center backdrop-blur-xl shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_45px_rgba(0,0,0,0.7)] flex flex-col items-center justify-between min-h-[220px] sm:min-h-[250px] group`}
                   >
-                    <div className="my-1">
-                      <TeamCrest name={team.name} logoUrl={team.logoUrl} className="size-11 sm:size-12" />
+                    {/* Team Icon in large circle */}
+                    <div className="my-2 group-hover:scale-105 transition-transform duration-300">
+                      <TeamCrest name={team.name} logoUrl={team.logoUrl} className="size-20 sm:size-24 md:size-28" />
                     </div>
 
-                    <h3 className="font-sans font-black text-xs sm:text-sm text-white uppercase tracking-tight leading-tight mt-1 truncate w-full">
+                    {/* Team Name - Larger & bold typography */}
+                    <h3 className="font-sans font-black text-sm sm:text-base md:text-lg text-white uppercase tracking-tight leading-snug mt-2 text-center w-full px-1 drop-shadow-md">
                       {team.name}
                     </h3>
 
-                    <div className="mt-2 w-full pt-2 border-t border-white/10">
-                      <span className="block text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    {/* Remaining Purse */}
+                    <div className="mt-3.5 w-full pt-3 border-t border-white/10">
+                      <span className="block text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-400">
                         REMAINING PURSES
                       </span>
-                      <span className="block font-mono text-xs sm:text-sm font-black text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.4)] mt-0.5">
+                      <span className="block font-mono text-sm sm:text-base md:text-lg font-black text-amber-400 drop-shadow-[0_0_12px_rgba(245,158,11,0.5)] mt-0.5">
                         {team.pointsRemaining?.toLocaleString()} PTS
                       </span>
                     </div>
@@ -943,7 +966,7 @@ export default function LiveAuctionArena() {
                 ))}
               </div>
             ) : (
-              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 text-center text-xs text-slate-500 italic">
+              <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-10 text-center text-xs text-slate-500 italic">
                 No teams registered yet. Teams will appear here once added by administrators.
               </div>
             )}

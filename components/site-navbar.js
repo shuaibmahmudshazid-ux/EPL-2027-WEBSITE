@@ -12,6 +12,7 @@ export default function SiteNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [hasFixtures, setHasFixtures] = useState(false);
   const [hasGallery, setHasGallery] = useState(false);
+  const [hasTeams, setHasTeams] = useState(false);
   const [isAuctionLive, setIsAuctionLive] = useState(false);
 
   useEffect(() => {
@@ -33,13 +34,17 @@ export default function SiteNavbar() {
       .catch(() => {});
     fetch("/api/auction/state", { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => setIsAuctionLive(d?.state?.status === "in_progress" || d?.state?.status === "paused"))
+      .then((d) => {
+        setIsAuctionLive(d?.state?.status === "in_progress" || d?.state?.status === "paused");
+        setHasTeams(Array.isArray(d?.teams) && d.teams.length > 0);
+      })
       .catch(() => {});
   }, []);
 
   const navItems = [
     { name: "Home", href: "/" },
     ...(hasFixtures ? [{ name: "Upcoming Fixtures", href: "/#fixtures" }] : []),
+    ...(hasTeams ? [{ name: "Teams", href: "/#teams" }] : []),
     ...(hasGallery ? [{ name: "Gallery", href: "/#gallery" }] : []),
     { name: "Schedule", href: "/schedule" },
     { name: "Auction", href: "/auction" },

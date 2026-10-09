@@ -580,16 +580,16 @@ export default function AdminFixturesView() {
                   <div className="flex items-center justify-between gap-3 my-2">
                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
                       <div
-                        className={`size-9 rounded-xl bg-gradient-to-br ${item.team1.color || "from-blue-600 to-indigo-900"} flex items-center justify-center font-black text-xs text-white shrink-0`}
+                        className={`size-10 sm:size-11 rounded-full border border-white/20 bg-gradient-to-br ${item.team1.color || "from-blue-600 to-indigo-900"} flex items-center justify-center font-black text-xs text-white shrink-0 shadow-md`}
                       >
                         {item.team1.short || item.team1.name?.slice(0, 3)}
                       </div>
                       <div className="truncate">
-                        <span className="block text-xs font-bold text-white truncate">
+                        <span className="block text-xs sm:text-sm font-black text-white truncate">
                           {item.team1.name}
                         </span>
                         {item.team1.session && (
-                          <span className="block text-[10px] text-slate-400">
+                          <span className="block text-[10px] text-slate-400 font-medium">
                             {item.team1.session}
                           </span>
                         )}
@@ -597,7 +597,7 @@ export default function AdminFixturesView() {
                     </div>
 
                     <div className="flex flex-col items-center px-2 shrink-0">
-                      <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-black text-amber-400">
+                      <span className="rounded-full bg-white/10 border border-white/15 px-2.5 py-0.5 text-[10px] font-black text-amber-400">
                         VS
                       </span>
                       <span className="text-[10px] font-mono text-slate-300 mt-1">
@@ -607,17 +607,17 @@ export default function AdminFixturesView() {
 
                     <div className="flex items-center justify-end gap-2.5 flex-1 min-w-0 text-right">
                       <div className="truncate">
-                        <span className="block text-xs font-bold text-white truncate">
+                        <span className="block text-xs sm:text-sm font-black text-white truncate">
                           {item.team2.name}
                         </span>
                         {item.team2.session && (
-                          <span className="block text-[10px] text-slate-400">
+                          <span className="block text-[10px] text-slate-400 font-medium">
                             {item.team2.session}
                           </span>
                         )}
                       </div>
                       <div
-                        className={`size-9 rounded-xl bg-gradient-to-br ${item.team2.color || "from-amber-600 to-yellow-800"} flex items-center justify-center font-black text-xs text-white shrink-0`}
+                        className={`size-10 sm:size-11 rounded-full border border-white/20 bg-gradient-to-br ${item.team2.color || "from-amber-600 to-yellow-800"} flex items-center justify-center font-black text-xs text-white shrink-0 shadow-md`}
                       >
                         {item.team2.short || item.team2.name?.slice(0, 3)}
                       </div>

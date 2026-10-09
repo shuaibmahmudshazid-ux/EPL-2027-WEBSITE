@@ -230,17 +230,17 @@ export default function TeamRegistrationForm() {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative flex size-[180px] cursor-pointer select-none flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed transition-all ${
+            className={`relative flex size-[180px] cursor-pointer select-none flex-col items-center justify-center overflow-hidden rounded-full border-2 border-dashed shadow-xl transition-all ${
               isDragging
                 ? "border-amber-400 bg-amber-500/10 scale-105"
                 : logoPreview
-                ? "border-emerald-500/50 bg-[#0A0F1D]"
-                : "border-white/20 bg-[#0A0F1D]/80 hover:border-amber-500/50 hover:bg-[#0A0F1D]"
+                ? "border-emerald-500/70 bg-[#0A0F1D] ring-4 ring-emerald-500/20"
+                : "border-white/25 bg-[#0A0F1D]/80 hover:border-amber-500/60 hover:bg-[#0A0F1D] ring-2 ring-amber-500/15"
             }`}
           >
             {logoPreview ? (
-              <div className="relative size-full group">
-                <img className="size-full object-cover" src={logoPreview} alt="Team logo" />
+              <div className="relative size-full group rounded-full overflow-hidden">
+                <img className="size-full object-cover rounded-full" src={logoPreview} alt="Team logo" />
                 <button
                   type="button"
                   onClick={(e) => {

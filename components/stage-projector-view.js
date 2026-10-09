@@ -16,6 +16,7 @@ import {
 } from "react-icons/fa6";
 import PlayerStageRevealCard, { formatBasePrice, formatBroadcastRole } from "./player-stage-reveal-card";
 import AuctionRoundStamp from "./auction-round-stamp";
+import TeamCrest from "./team-crest";
 
 const safeParse = async (response) => {
   try {
@@ -525,6 +526,15 @@ export default function StageProjectorView() {
                     <p className="text-xs font-extrabold uppercase tracking-widest text-emerald-300">
                       WINNING TEAM
                     </p>
+                    {state.currentBidderTeamName && (
+                      <div className="my-3 flex justify-center">
+                        <TeamCrest
+                          name={state.currentBidderTeamName}
+                          logoUrl={state.currentBidderTeamLogo}
+                          className="size-20 sm:size-24 md:size-28"
+                        />
+                      </div>
+                    )}
                     <h3 className="mt-1 text-2xl sm:text-4xl font-black text-white uppercase drop-shadow">
                       {state.currentBidderTeamName || "WINNING SQUAD"}
                     </h3>
@@ -561,9 +571,18 @@ export default function StageProjectorView() {
                       <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
                         LEADING BIDDER
                       </p>
-                      <p className="mt-1 text-xl sm:text-2xl font-black text-[#d4a84f] truncate">
-                        {state.currentBidderTeamName || "Waiting for Opening Bid..."}
-                      </p>
+                      <div className="mt-2 flex items-center justify-center gap-2.5">
+                        {state.currentBidderTeamName && (
+                          <TeamCrest
+                            name={state.currentBidderTeamName}
+                            logoUrl={state.currentBidderTeamLogo}
+                            className="size-8 sm:size-10"
+                          />
+                        )}
+                        <span className="text-xl sm:text-2xl font-black text-[#d4a84f] truncate">
+                          {state.currentBidderTeamName || "Waiting for Opening Bid..."}
+                        </span>
+                      </div>
 
                       <div className="mt-3 flex items-center justify-center gap-2">
                         <span

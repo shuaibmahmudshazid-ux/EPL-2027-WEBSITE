@@ -23,6 +23,7 @@ import {
 
 import UpcomingFixturesSection from "./upcoming-fixtures-section";
 import TournamentGallery from "./tournament-gallery";
+import TournamentTeamsSection from "./tournament-teams-section";
 
 const steps = [
   {
@@ -150,6 +151,11 @@ export default function TournamentInfo() {
       {/* 2. DEDICATED UPCOMING FIXTURES SECTION                   */}
       {/* ======================================================== */}
       <UpcomingFixturesSection />
+
+      {/* ======================================================== */}
+      {/* 2.5 PARTICIPATING TEAMS SECTION (CIRCULAR EMBLEMS)       */}
+      {/* ======================================================== */}
+      <TournamentTeamsSection />
 
       {/* ======================================================== */}
       {/* 3. TOURNAMENT GALLERY SECTION (ADMIN MANAGED)            */}

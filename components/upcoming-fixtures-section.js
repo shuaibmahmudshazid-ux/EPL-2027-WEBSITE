@@ -159,22 +159,22 @@ export default function UpcomingFixturesSection() {
                   </span>
                 </div>
 
-                {/* Team vs Team Layout */}
-                <div className="py-2 flex items-center justify-between gap-2 sm:gap-3">
+                {/* Team vs Team Layout (Larger section with circular team icons) */}
+                <div className="py-3 flex items-center justify-between gap-3 sm:gap-4">
                   {/* Team 1 */}
                   <div className="flex flex-col items-center text-center flex-1 min-w-0">
                     <div
-                      className={`size-12 sm:size-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${
+                      className={`size-16 sm:size-20 md:size-24 rounded-full bg-gradient-to-br ${
                         match.team1.color || "from-blue-600 to-indigo-900"
-                      } border border-white/20 flex items-center justify-center font-black text-xs sm:text-base text-white shadow-md group-hover:scale-105 transition-transform duration-300`}
+                      } border-2 border-white/30 ring-2 ring-blue-500/30 flex items-center justify-center font-black text-sm sm:text-lg text-white shadow-xl group-hover:scale-105 transition-transform duration-300`}
                     >
                       {match.team1.short || match.team1.name?.slice(0, 3)}
                     </div>
-                    <h3 className="font-sans font-bold text-xs sm:text-sm text-white mt-2 line-clamp-1">
+                    <h3 className="font-sans font-black text-sm sm:text-base md:text-lg text-white mt-2.5 line-clamp-2 px-1 leading-tight drop-shadow-md">
                       {match.team1.name}
                     </h3>
                     {match.team1.session && (
-                      <span className="text-[9px] sm:text-[10px] font-medium text-slate-400 mt-0.5">
+                      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 mt-1">
                         {match.team1.session}
                       </span>
                     )}
@@ -182,14 +182,14 @@ export default function UpcomingFixturesSection() {
 
                   {/* Center VS & Time Display */}
                   <div className="flex flex-col items-center px-1 shrink-0">
-                    <div className="size-8 sm:size-9 rounded-full bg-[#070A12] border border-amber-500/30 flex items-center justify-center text-[10px] sm:text-xs font-black text-amber-400 shadow-inner">
+                    <div className="size-9 sm:size-11 rounded-full bg-[#070A12] border border-amber-500/40 flex items-center justify-center text-xs sm:text-sm font-black text-amber-400 shadow-inner">
                       VS
                     </div>
-                    <div className="mt-1.5 sm:mt-2 text-center">
-                      <span className="block font-mono text-[11px] sm:text-xs font-black text-white tabular-nums">
+                    <div className="mt-2 text-center">
+                      <span className="block font-mono text-xs sm:text-sm font-black text-white tabular-nums">
                         {match.time}
                       </span>
-                      <span className="block text-[8px] sm:text-[9px] font-bold text-amber-400/80 uppercase tracking-tight mt-0.5">
+                      <span className="block text-[9px] sm:text-[10px] font-bold text-amber-400/90 uppercase tracking-tight mt-0.5">
                         {match.format?.split(" ")[0] || "T10"}
                       </span>
                     </div>
@@ -198,17 +198,17 @@ export default function UpcomingFixturesSection() {
                   {/* Team 2 */}
                   <div className="flex flex-col items-center text-center flex-1 min-w-0">
                     <div
-                      className={`size-12 sm:size-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${
+                      className={`size-16 sm:size-20 md:size-24 rounded-full bg-gradient-to-br ${
                         match.team2.color || "from-amber-600 to-yellow-800"
-                      } border border-white/20 flex items-center justify-center font-black text-xs sm:text-base text-white shadow-md group-hover:scale-105 transition-transform duration-300`}
+                      } border-2 border-white/30 ring-2 ring-amber-500/30 flex items-center justify-center font-black text-sm sm:text-lg text-white shadow-xl group-hover:scale-105 transition-transform duration-300`}
                     >
                       {match.team2.short || match.team2.name?.slice(0, 3)}
                     </div>
-                    <h3 className="font-sans font-bold text-xs sm:text-sm text-white mt-2 line-clamp-1">
+                    <h3 className="font-sans font-black text-sm sm:text-base md:text-lg text-white mt-2.5 line-clamp-2 px-1 leading-tight drop-shadow-md">
                       {match.team2.name}
                     </h3>
                     {match.team2.session && (
-                      <span className="text-[10px] font-medium text-slate-400 mt-0.5">
+                      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 mt-1">
                         {match.team2.session}
                       </span>
                     )}
