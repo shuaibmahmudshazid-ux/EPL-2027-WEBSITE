@@ -18,7 +18,7 @@ export const OFFICIAL_ICON_PLAYERS = [
   {
     _id: "icon-ibrahim-fahad",
     fullName: "IBRAHIM FAHAD",
-    session: "Alumni",
+    session: "2022-2023",
     categories: ["All-Rounder"],
     photoUrl: "https://res.cloudinary.com/kchs0bfz/image/upload/v1791488334/epl_gallery/a2rgxlgd7hdsf7ryplcu.jpg",
     isIcon: true,
@@ -26,7 +26,7 @@ export const OFFICIAL_ICON_PLAYERS = [
   {
     _id: "icon-sagor-das",
     fullName: "SAGOR DAS",
-    session: "Alumni",
+    session: "2022-2023",
     categories: ["Bowler"],
     photoUrl: "https://res.cloudinary.com/kchs0bfz/image/upload/v1791488324/epl_gallery/haumsr7y52v33n9llgh8.jpg",
     isIcon: true,
@@ -34,7 +34,7 @@ export const OFFICIAL_ICON_PLAYERS = [
   {
     _id: "icon-ashaduzzaman",
     fullName: "ASHADUZZAMAN",
-    session: "Alumni",
+    session: "2022-2023",
     categories: ["Batsman"],
     photoUrl: "https://res.cloudinary.com/kchs0bfz/image/upload/v1791488313/epl_gallery/bfyrtbnijcmvrygpentz.jpg",
     isIcon: true,
@@ -42,7 +42,7 @@ export const OFFICIAL_ICON_PLAYERS = [
   {
     _id: "icon-masud-taha",
     fullName: "MASUD TAHA",
-    session: "Alumni",
+    session: "2022-2023",
     categories: ["All-Rounder"],
     photoUrl: "https://res.cloudinary.com/kchs0bfz/image/upload/v1791488300/epl_gallery/oqz8unetdw59kup8vjnx.jpg",
     isIcon: true,
@@ -50,7 +50,7 @@ export const OFFICIAL_ICON_PLAYERS = [
   {
     _id: "icon-salman-hasan",
     fullName: "SALMAN HASAN",
-    session: "Alumni",
+    session: "2022-2023",
     categories: ["Batsman"],
     photoUrl: "https://res.cloudinary.com/kchs0bfz/image/upload/v1791488221/epl_gallery/j5e4kll9wneqyluo4w3y.jpg",
     isIcon: true,
@@ -195,7 +195,15 @@ export default function PlayerShowcaseSection() {
       if (selectedSession !== "All Sessions") {
         const session = (p.session || "").toLowerCase();
         const target = selectedSession.toLowerCase();
-        if (!session.includes(target) && !target.includes(session)) return false;
+        const normSession = session.replace(/[^0-9a-z]/g, "");
+        const normTarget = target.replace(/[^0-9a-z]/g, "");
+        const matches =
+          session.includes(target) ||
+          target.includes(session) ||
+          normSession.includes(normTarget) ||
+          normTarget.includes(normSession) ||
+          (normSession.startsWith("2022") && normTarget.startsWith("2022"));
+        if (!matches) return false;
       }
 
       return true;
