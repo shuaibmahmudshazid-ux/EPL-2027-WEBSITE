@@ -5,31 +5,38 @@ import Link from "next/link";
 import { FaArrowRight, FaGavel } from "react-icons/fa6";
 import TeamCrest from "./team-crest";
 
-const DEFAULT_TEAMS = [
-  { _id: "t1", name: "Stormers PSTU", pointsRemaining: 10000, playerCount: 0 },
-  { _id: "t2", name: "Titans PSTU", pointsRemaining: 10000, playerCount: 0 },
-  { _id: "t3", name: "Warriors PSTU", pointsRemaining: 10000, playerCount: 0 },
-  { _id: "t4", name: "Gladiators PSTU", pointsRemaining: 10000, playerCount: 0 },
-  { _id: "t5", name: "Royals PSTU", pointsRemaining: 10000, playerCount: 0 },
-];
-
 export default function TournamentTeamsSection() {
-  const [teams, setTeams] = useState(DEFAULT_TEAMS);
+  const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check cached tournament teams to prevent any flash of unloaded state on refresh
+    try {
+      const cached = sessionStorage.getItem("epl_teams_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTeams(parsed);
+          setLoading(false);
+        }
+      }
+    } catch (_) {}
+
     fetch("/api/auction/state", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data?.teams) && data.teams.length > 0) {
           setTeams(data.teams);
+          try {
+            sessionStorage.setItem("epl_teams_cache", JSON.stringify(data.teams));
+          } catch (_) {}
         }
       })
       .catch((err) => console.error("Error loading tournament teams:", err))
       .finally(() => setLoading(false));
   }, []);
 
-  if (teams.length === 0) return null;
+  if (!loading && teams.length === 0) return null;
 
   return (
     <section id="teams" className="py-16 sm:py-24 border-b border-white/10 bg-[#070D1E] relative overflow-hidden">
@@ -56,8 +63,28 @@ export default function TournamentTeamsSection() {
           </p>
         </div>
 
-        {/* Teams Grid - Large cards, circular emblems, prominent names */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 sm:gap-7">
+        {/* Teams Grid - Shimmer Skeleton during first load, or Real Franchises */}
+        {loading && teams.length === 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 sm:gap-7">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="rounded-3xl border border-white/10 bg-[#111A30]/50 p-6 sm:p-7 min-h-[290px] flex flex-col items-center justify-between animate-pulse"
+              >
+                <div className="my-3 size-24 sm:size-28 rounded-full bg-white/5 border border-white/10" />
+                <div className="w-full space-y-2">
+                  <div className="h-5 w-3/4 mx-auto rounded-lg bg-white/10" />
+                  <div className="h-4 w-1/2 mx-auto rounded-full bg-white/5" />
+                </div>
+                <div className="mt-4 w-full pt-3.5 border-t border-white/5 flex items-center justify-between">
+                  <div className="h-3 w-16 rounded bg-white/10" />
+                  <div className="h-6 w-16 rounded-xl bg-amber-500/20" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 sm:gap-7">
           {teams.map((team, idx) => (
             <div
               key={team._id || idx}
@@ -108,6 +135,7 @@ export default function TournamentTeamsSection() {
             </div>
           ))}
         </div>
+        )}
 
         {/* Bottom CTA to Auction Arena */}
         <div className="mt-12 text-center">
