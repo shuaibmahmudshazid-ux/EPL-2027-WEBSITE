@@ -43,6 +43,7 @@ export default function SiteNavbar() {
 
   const navItems = [
     { name: "Home", href: "/" },
+    { name: "Players", href: "/#players" },
     ...(hasFixtures ? [{ name: "Upcoming Fixtures", href: "/#fixtures" }] : []),
     ...(hasTeams ? [{ name: "Teams", href: "/#teams" }] : []),
     ...(hasGallery ? [{ name: "Gallery", href: "/#gallery" }] : []),

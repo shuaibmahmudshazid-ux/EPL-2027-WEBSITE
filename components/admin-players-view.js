@@ -13,6 +13,7 @@ import {
   exportPlayersToPdf,
   exportPlayersToExcel,
 } from "../lib/export-utils";
+import PlayerPhotocard from "./player-photocard";
 
 const statusBadge = {
   pending: "bg-[#856406] text-yellow-200",
@@ -30,6 +31,7 @@ const DetailRow = ({ label, value }) => (
 );
 
 const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUpdateTeam, onClose }) => {
+  const [modalTab, setModalTab] = useState("details"); // "details" | "photocard"
   const currentTierId =
     player.auctionTier?._id ||
     (typeof player.auctionTier === "string" ? player.auctionTier : "");
@@ -46,46 +48,31 @@ const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUp
         className="max-h-[90vh] w-full max-w-[560px] overflow-y-auto rounded-lg border border-white/15 bg-[#031827] p-5 shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="relative shrink-0">
-              {player.photoUrl ? (
-                <img
-                  className="size-16 rounded-full object-cover"
-                  src={player.photoUrl}
-                  alt={player.fullName}
-                />
-              ) : (
-                <div className="grid size-16 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d]">
-                  No Photo
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h2 className="text-lg font-bold">
-                {player.fullName}
-              </h2>
-
-              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                <b
-                  className={`inline-block rounded px-1.5 py-0.5 text-[10px] capitalize ${
-                    statusBadge[player.status]
-                  }`}
-                >
-                  {player.status}
-                </b>
-                {player.auctionTier?.name || player.tier ? (
-                  <b className="inline-block rounded border border-[#d4a84f]/40 bg-[#76511d] px-1.5 py-0.5 text-[10px] text-[#f2d590]">
-                    {player.auctionTier?.name || player.tier}
-                  </b>
-                ) : (
-                  <b className="inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-[#8b979d]">
-                    No Tier
-                  </b>
-                )}
-              </div>
-            </div>
+        {/* TAB TOGGLE */}
+        <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setModalTab("details")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                modalTab === "details"
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Player Details
+            </button>
+            <button
+              type="button"
+              onClick={() => setModalTab("photocard")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                modalTab === "photocard"
+                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.3)]"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              ★ Official Photocard
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -119,6 +106,53 @@ const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUp
             </button>
           </div>
         </div>
+
+        {modalTab === "photocard" ? (
+          <div className="py-4 flex justify-center">
+            <PlayerPhotocard player={player} interactive={false} />
+          </div>
+        ) : (
+          <>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="relative shrink-0">
+                {player.photoUrl ? (
+                  <img
+                    className="size-16 rounded-full object-cover"
+                    src={player.photoUrl}
+                    alt={player.fullName}
+                  />
+                ) : (
+                  <div className="grid size-16 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d]">
+                    No Photo
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h2 className="text-lg font-bold">
+                  {player.fullName}
+                </h2>
+
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                  <b
+                    className={`inline-block rounded px-1.5 py-0.5 text-[10px] capitalize ${
+                      statusBadge[player.status]
+                    }`}
+                  >
+                    {player.status}
+                  </b>
+                  {player.auctionTier?.name || player.tier ? (
+                    <b className="inline-block rounded border border-[#d4a84f]/40 bg-[#76511d] px-1.5 py-0.5 text-[10px] text-[#f2d590]">
+                      {player.auctionTier?.name || player.tier}
+                    </b>
+                  ) : (
+                    <b className="inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-[#8b979d]">
+                      No Tier
+                    </b>
+                  )}
+                </div>
+              </div>
+            </div>
 
         <div className="grid gap-x-4 min-[520px]:grid-cols-2">
           <DetailRow label="Phone" value={player.phone} />
@@ -198,6 +232,8 @@ const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUp
             </select>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

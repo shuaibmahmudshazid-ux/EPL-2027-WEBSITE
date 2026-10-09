@@ -4,23 +4,24 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FaArrowRight, FaGavel } from "react-icons/fa6";
 import TeamCrest from "./team-crest";
-import ExportButtonGroup from "./export-button-group";
-import {
-  exportTeamsToPdf,
-  exportTeamsToExcel,
-  exportSingleTeamToPdf,
-  exportSingleTeamToExcel,
-} from "../lib/export-utils";
+
+const DEFAULT_TEAMS = [
+  { _id: "t1", name: "Stormers PSTU", pointsRemaining: 10000, playerCount: 0 },
+  { _id: "t2", name: "Titans PSTU", pointsRemaining: 10000, playerCount: 0 },
+  { _id: "t3", name: "Warriors PSTU", pointsRemaining: 10000, playerCount: 0 },
+  { _id: "t4", name: "Gladiators PSTU", pointsRemaining: 10000, playerCount: 0 },
+  { _id: "t5", name: "Royals PSTU", pointsRemaining: 10000, playerCount: 0 },
+];
 
 export default function TournamentTeamsSection() {
-  const [teams, setTeams] = useState([]);
+  const [teams, setTeams] = useState(DEFAULT_TEAMS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/auction/state", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data?.teams)) {
+        if (Array.isArray(data?.teams) && data.teams.length > 0) {
           setTeams(data.teams);
         }
       })
@@ -28,7 +29,7 @@ export default function TournamentTeamsSection() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading || teams.length === 0) return null;
+  if (teams.length === 0) return null;
 
   return (
     <section id="teams" className="py-16 sm:py-24 border-b border-white/10 bg-[#070D1E] relative overflow-hidden">
@@ -53,24 +54,6 @@ export default function TournamentTeamsSection() {
             Elite squads battling for glory at Patuakhali Science and Technology University. 
             View team emblems, squad rosters, and live purse points.
           </p>
-
-          <div className="mt-4 flex justify-center">
-            <ExportButtonGroup
-              label="Download Teams Directory"
-              variant="outline"
-              pdfLabel="Download official team directory as PDF"
-              excelLabel="Download official teams & rosters as Excel"
-              onExportPdf={() => {
-                exportTeamsToPdf(teams, [], {
-                  title: "Official Participating Franchises",
-                  filterDescription: "EPL 2027 Tournament Directory",
-                });
-              }}
-              onExportExcel={() => {
-                exportTeamsToExcel(teams, []);
-              }}
-            />
-          </div>
         </div>
 
         {/* Teams Grid - Large cards, circular emblems, prominent names */}
@@ -83,9 +66,9 @@ export default function TournamentTeamsSection() {
               {/* Top ambient card glow on hover */}
               <div className="absolute -top-12 -right-12 size-32 rounded-full bg-amber-500/10 blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all" />
 
-              {/* Team Circular Emblem Section (Larger in circle) */}
+              {/* Team Circular Emblem Section (Larger in circle with floating motion) */}
               <div className="my-3 flex flex-col items-center">
-                <div className="group-hover:scale-105 transition-transform duration-300">
+                <div className="group-hover:scale-110 transition-transform duration-500 animate-crest-float">
                   <TeamCrest
                     name={team.name}
                     logoUrl={team.logoUrl}
@@ -113,24 +96,13 @@ export default function TournamentTeamsSection() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  <ExportButtonGroup
-                    label="Roster"
-                    variant="compact"
-                    pdfLabel="Download squad roster as PDF"
-                    excelLabel="Download squad roster as Excel"
-                    onExportPdf={() => exportSingleTeamToPdf(team, team.players || [])}
-                    onExportExcel={() => exportSingleTeamToExcel(team, team.players || [])}
-                  />
-
-                  <Link
-                    href="/auction"
-                    className="inline-flex items-center gap-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:text-white transition-all"
-                  >
-                    <span>Auction</span>
-                    <FaArrowRight className="text-[9px]" />
-                  </Link>
-                </div>
+                <Link
+                  href="/auction"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-110 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-[#0A0F1D] shadow-md transition-all"
+                >
+                  <span>Auction</span>
+                  <FaArrowRight className="text-[10px]" />
+                </Link>
               </div>
 
             </div>

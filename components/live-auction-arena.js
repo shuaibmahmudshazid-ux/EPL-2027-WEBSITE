@@ -441,8 +441,9 @@ export default function LiveAuctionArena() {
 
           {/* Standby Central Stage Card */}
           <div className="my-auto py-12 text-center max-w-2xl mx-auto flex flex-col items-center">
-            <div className="relative size-20 sm:size-24 rounded-3xl border border-amber-500/40 bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-transparent flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(245,158,11,0.25)]">
-              <FaGavel className="text-3xl sm:text-4xl text-amber-400 animate-pulse" />
+            <div className="relative size-20 sm:size-24 rounded-3xl border border-amber-500/40 bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-transparent flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(245,158,11,0.35)]">
+              <div className="pointer-events-none absolute -inset-3 rounded-3xl border border-amber-400/30 animate-crest-wave" />
+              <FaGavel className="text-3xl sm:text-4xl text-amber-400 animate-gavel-strike filter drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]" />
             </div>
 
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-amber-300 mb-4 shadow-[0_0_20px_rgba(245,158,11,0.2)]">

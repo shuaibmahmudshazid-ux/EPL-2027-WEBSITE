@@ -14,14 +14,19 @@ export const runtime = "nodejs";
 export const GET = async () => {
   const adminSession = await getSession();
 
-  if (!adminSession) {
-    return Response.json(
-      { error: "Not authenticated." },
-      { status: 401 }
-    );
-  }
-
   await connectToDatabase();
+
+  if (!adminSession) {
+    // Public visitor: return players with showcase fields only (excluding sensitive contact/payment info)
+    const players = await Player.find({ status: { $ne: "rejected" } })
+      .select("fullName categories session photoUrl tier auctionTier status")
+      .populate("auctionTier", "name category")
+      .collation({ locale: "en", strength: 2 })
+      .sort({ session: 1, fullName: 1 })
+      .lean();
+
+    return Response.json({ players });
+  }
 
   const players = await Player.find()
     .populate("team", "name")

@@ -419,3 +419,218 @@ a {
 .animate-stamp {
   animation: stampSlam 0.45s cubic-bezier(0.2, 0.85, 0.4, 1.25) forwards;
 }
+
+/* ======================================================== */
+/* MOTION GRAPHICS: PHOTOCARDS, TEAM LOGOS & AUCTION ARENA  */
+/* ======================================================== */
+
+/* 1. PHOTOCARD MOTION GRAPHICS */
+@keyframes cardSheenSweep {
+  0% {
+    transform: translateX(-160%) skewX(-25deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  45% {
+    transform: translateX(260%) skewX(-25deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(260%) skewX(-25deg);
+    opacity: 0;
+  }
+}
+
+.photocard-sheen {
+  position: absolute;
+  inset: 0;
+  width: 70%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 20%,
+    rgba(254, 240, 138, 0.35) 50%,
+    rgba(255, 255, 255, 0.05) 80%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 15;
+  transform: translateX(-160%) skewX(-25deg);
+  animation: cardSheenSweep 5s ease-in-out infinite;
+}
+
+@keyframes iconRingPulse {
+  0%, 100% {
+    box-shadow: 0 0 35px rgba(245, 158, 11, 0.6), 0 0 70px rgba(251, 191, 36, 0.3);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow: 0 0 55px rgba(245, 158, 11, 0.9), 0 0 100px rgba(251, 191, 36, 0.55);
+    filter: brightness(1.08);
+  }
+}
+
+.animate-icon-ring {
+  animation: iconRingPulse 3.5s ease-in-out infinite;
+}
+
+@keyframes starTwinkle {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+    filter: drop-shadow(0 0 8px #fef08a);
+  }
+}
+
+.animate-twinkle {
+  animation: starTwinkle 2.2s ease-in-out infinite;
+}
+
+@keyframes chevronBounceLeft {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-3px);
+  }
+}
+
+@keyframes chevronBounceRight {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
+.animate-chevron-left {
+  animation: chevronBounceLeft 1.8s ease-in-out infinite;
+}
+
+.animate-chevron-right {
+  animation: chevronBounceRight 1.8s ease-in-out infinite;
+}
+
+/* 2. TEAM LOGO MOTION GRAPHICS */
+@keyframes crestOrbitSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes crestOrbitReverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.animate-crest-orbit {
+  animation: crestOrbitSpin 14s linear infinite;
+}
+
+.animate-crest-orbit-fast {
+  animation: crestOrbitReverse 10s linear infinite;
+}
+
+@keyframes crestRadarWave {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.85;
+  }
+  60% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+
+.animate-crest-wave {
+  animation: crestRadarWave 2.8s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+}
+
+@keyframes crestFloatMotion {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-crest-float {
+  animation: crestFloatMotion 4s ease-in-out infinite;
+}
+
+/* 3. AUCTION SECTION MOTION GRAPHICS */
+@keyframes gavelStrikeMotion {
+  0%, 75%, 100% {
+    transform: rotate(0deg);
+  }
+  80% {
+    transform: rotate(-35deg);
+  }
+  88% {
+    transform: rotate(18deg);
+  }
+  93% {
+    transform: rotate(-6deg);
+  }
+}
+
+.animate-gavel-strike {
+  transform-origin: bottom right;
+  animation: gavelStrikeMotion 3.6s ease-in-out infinite;
+}
+
+@keyframes auctionBeaconPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+  }
+  50% {
+    transform: scale(1.25);
+    box-shadow: 0 0 35px rgba(16, 185, 129, 0.9), 0 0 60px rgba(52, 211, 153, 0.4);
+  }
+}
+
+.animate-auction-beacon {
+  animation: auctionBeaconPulse 2s ease-in-out infinite;
+}
+
+@keyframes arenaLaserBeam {
+  0% {
+    transform: translateX(-100%) rotate(-15deg);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.55;
+  }
+  55% {
+    transform: translateX(220%) rotate(-15deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(220%) rotate(-15deg);
+    opacity: 0;
+  }
+}
+
+.animate-arena-laser {
+  animation: arenaLaserBeam 6s ease-in-out infinite;
+}

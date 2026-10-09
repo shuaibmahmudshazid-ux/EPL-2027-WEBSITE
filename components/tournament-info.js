@@ -24,6 +24,7 @@ import {
 import UpcomingFixturesSection from "./upcoming-fixtures-section";
 import TournamentGallery from "./tournament-gallery";
 import TournamentTeamsSection from "./tournament-teams-section";
+import PlayerShowcaseSection from "./player-showcase-section";
 
 const steps = [
   {
@@ -156,6 +157,11 @@ export default function TournamentInfo() {
       {/* 2.5 PARTICIPATING TEAMS SECTION (CIRCULAR EMBLEMS)       */}
       {/* ======================================================== */}
       <TournamentTeamsSection />
+
+      {/* ======================================================== */}
+      {/* 2.8 OFFICIAL PLAYER INFORMATIONS (PHOTOCARDS)            */}
+      {/* ======================================================== */}
+      <PlayerShowcaseSection />
 
       {/* ======================================================== */}
       {/* 3. TOURNAMENT GALLERY SECTION (ADMIN MANAGED)            */}
@@ -291,11 +297,16 @@ export default function TournamentInfo() {
         <div className="mx-auto w-[min(1450px,calc(100%-24px))] sm:w-[min(1450px,calc(100%-36px))] min-[781px]:w-[min(1450px,calc(100%-64px))]">
           <div className="relative rounded-2xl sm:rounded-3xl border border-amber-500/30 bg-gradient-to-r from-[#111827] via-[#0D1527] to-[#111827] p-6 sm:p-10 md:p-12 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-6 sm:gap-8">
             
+            {/* Motion Graphic: Laser sweep light beam across arena banner */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="w-56 h-full bg-gradient-to-r from-transparent via-amber-400/15 to-transparent animate-arena-laser" />
+            </div>
+
             <div className="absolute -right-10 -bottom-10 size-60 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
 
-            <div className="max-w-xl text-center lg:text-left">
-              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-black text-emerald-400 mb-3.5 sm:mb-4">
-                <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
+            <div className="max-w-xl text-center lg:text-left relative z-10">
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-1 text-xs font-black text-emerald-400 mb-3.5 sm:mb-4 shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+                <span className="size-2 rounded-full bg-emerald-400 animate-auction-beacon" />
                 AUCTION DATE: UPCOMING
               </span>
               <h3 className="font-sans font-black text-2xl sm:text-4xl text-white uppercase tracking-tight">
@@ -306,12 +317,12 @@ export default function TournamentInfo() {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 shrink-0 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 shrink-0 w-full sm:w-auto relative z-10">
               <Link
                 href="/auction"
-                className="inline-flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 px-7 sm:px-8 py-3.5 sm:py-4 text-xs font-black uppercase tracking-wider text-[#0A0F1D] shadow-[0_0_25px_rgba(245,158,11,0.4)] hover:shadow-[0_0_35px_rgba(245,158,11,0.6)] hover:scale-105 transition-all w-full sm:w-auto"
+                className="group/btn inline-flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 px-7 sm:px-8 py-3.5 sm:py-4 text-xs font-black uppercase tracking-wider text-[#0A0F1D] shadow-[0_0_25px_rgba(245,158,11,0.4)] hover:shadow-[0_0_40px_rgba(245,158,11,0.7)] hover:scale-105 transition-all w-full sm:w-auto"
               >
-                <FaGavel className="text-sm" />
+                <FaGavel className="text-sm animate-gavel-strike" />
                 <span>Enter Live Auction Arena</span>
               </Link>
               
