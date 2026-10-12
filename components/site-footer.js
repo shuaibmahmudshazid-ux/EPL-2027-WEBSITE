@@ -21,6 +21,7 @@ const container =
 
 const navLinks = [
   { name: "Home", href: "/" },
+  { name: "Official Players & Photocards", href: "/#players" },
   { name: "Upcoming Fixtures", href: "/#fixtures" },
   { name: "Tournament Gallery", href: "/#gallery" },
   { name: "Full Match Schedule", href: "/schedule" },

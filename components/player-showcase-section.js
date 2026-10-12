@@ -8,6 +8,10 @@ import {
   FaUsers,
   FaFilter,
   FaRotateRight,
+  FaIdCard,
+  FaChevronDown,
+  FaChevronUp,
+  FaStar,
 } from "react-icons/fa6";
 import PlayerPhotocard from "./player-photocard";
 import ExportButtonGroup from "./export-button-group";
@@ -125,12 +129,13 @@ const getSessionSortOrder = (session = "") => {
   return 9999;
 };
 
-export default function PlayerShowcaseSection() {
+export default function PlayerShowcaseSection({ initiallyExpanded = false }) {
   const [players, setPlayers] = useState([...OFFICIAL_ICON_PLAYERS, ...SHOWCASE_FALLBACKS]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Roles");
   const [selectedSession, setSelectedSession] = useState("All Sessions");
+  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
 
   const loadPlayers = async () => {
     try {
@@ -160,6 +165,33 @@ export default function PlayerShowcaseSection() {
 
   useEffect(() => {
     loadPlayers();
+  }, []);
+
+  // Listen to hash (#players) or custom event from Navbar to open photocards
+  useEffect(() => {
+    const checkHash = () => {
+      if (typeof window !== "undefined" && window.location.hash === "#players") {
+        setIsExpanded(true);
+      }
+    };
+    checkHash();
+
+    const handleOpenEvent = () => {
+      setIsExpanded(true);
+      setTimeout(() => {
+        const el = document.getElementById("players-content") || document.getElementById("players");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 60);
+    };
+
+    window.addEventListener("hashchange", checkHash);
+    window.addEventListener("open-player-section", handleOpenEvent);
+    return () => {
+      window.removeEventListener("hashchange", checkHash);
+      window.removeEventListener("open-player-section", handleOpenEvent);
+    };
   }, []);
 
   // Filtered and Session-wise sorted list (Icon players strictly first, earliest session first, 2025-26 last)
@@ -201,7 +233,7 @@ export default function PlayerShowcaseSection() {
           session.includes(target) ||
           target.includes(session) ||
           normSession.includes(normTarget) ||
-          normTarget.includes(normSession) ||
+          normTarget.includes(session) ||
           (normSession.startsWith("2022") && normTarget.startsWith("2022"));
         if (!matches) return false;
       }
@@ -305,145 +337,275 @@ export default function PlayerShowcaseSection() {
           <p className="mt-3 text-xs sm:text-base text-slate-300 font-normal leading-relaxed max-w-2xl mx-auto">
             Official photocard directory of participating athletes. View verified player names, playing categories (Batsman, Bowler, All-Rounder), and academic sessions.
           </p>
-
-          {/* Export & Actions Toolbar */}
-          <div className="mt-5 flex items-center justify-center gap-3 flex-wrap">
-            <ExportButtonGroup
-              label="Download Player Directory"
-              variant="outline"
-              count={filteredPlayers.length}
-              pdfLabel="Download player directory as PDF"
-              excelLabel="Download player registry as Excel (.xlsx)"
-              onExportPdf={() => {
-                exportPlayersToPdf(filteredPlayers, {
-                  title: "Official Players Registry",
-                  filterDescription: "ESDM Premier League 2027 • Player Photocards",
-                });
-              }}
-              onExportExcel={() => {
-                exportPlayersToExcel(filteredPlayers);
-              }}
-            />
-
-            <Link
-              href="/player-registration"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#0A0F1D] hover:brightness-110 shadow-lg transition-all"
-            >
-              <FaUserPlus className="text-xs" />
-              <span>Register Player</span>
-            </Link>
-          </div>
         </div>
 
         {/* ======================================================== */}
-        {/* 3. FILTER CONTROLS (SEARCH, ROLE, BATCH, TIER)           */}
+        {/* 3. COLLAPSED TEASER (WHEN PHOTOCARDS ARE HIDDEN)         */}
         {/* ======================================================== */}
-        <div className="mb-10 rounded-2xl border border-white/10 bg-[#0B1426]/80 p-4 sm:p-5 backdrop-blur-xl shadow-2xl">
-          <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-            {/* Search Input */}
-            <div className="flex min-w-[260px] flex-1 items-center gap-2.5 rounded-xl border border-white/15 bg-[#050C1A] px-3.5 py-2.5 text-xs text-slate-400">
-              <FaMagnifyingGlass className="text-cyan-400 shrink-0" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by player name..."
-                className="w-full bg-transparent text-white outline-none placeholder:text-slate-500 text-xs sm:text-sm font-medium"
-              />
-              {search && (
+        {!isExpanded ? (
+          <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#111A30]/85 via-[#0C1425]/90 to-[#070D1E]/95 p-6 sm:p-10 backdrop-blur-2xl shadow-2xl relative overflow-hidden text-center max-w-4xl mx-auto">
+            {/* Ambient glows inside card */}
+            <div className="absolute -top-20 -left-20 size-60 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-20 -right-20 size-60 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1 mb-5">
+                <FaStar className="text-amber-400 text-xs" />
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-300">
+                  Holographic Photocard Vault
+                </span>
+              </div>
+
+              {/* Icon Players circular avatar preview with glowing rings */}
+              <div className="flex items-center justify-center -space-x-3 sm:-space-x-4 mb-6">
+                {OFFICIAL_ICON_PLAYERS.map((icon) => (
+                  <div
+                    key={icon._id}
+                    className="relative size-14 sm:size-16 md:size-20 rounded-full border-2 border-amber-400 bg-[#0A0F1D] overflow-hidden shadow-[0_0_20px_rgba(245,158,11,0.5)] transition-transform duration-300 hover:scale-115 hover:z-20 cursor-pointer"
+                    title={`${icon.fullName} • ${icon.categories?.[0] || "Icon Player"}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={icon.photoUrl}
+                      alt={icon.fullName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <h3 className="font-sans font-black text-xl sm:text-2xl md:text-3xl text-white uppercase tracking-tight">
+                Official Directory • <span className="text-amber-400">{filteredPlayers.length} Verified Athletes</span>
+              </h3>
+
+              <p className="mt-2.5 text-xs sm:text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
+                Click below to unlock and explore the interactive 3D holographic photocards, detailed player roles, batch sessions, and official export registries.
+              </p>
+
+              {/* Category Pills */}
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-slate-300 font-semibold">
+                <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-amber-400" /> 5 Official Icons
+                </span>
+                <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-cyan-400" /> Batsmen & Bowlers
+                </span>
+                <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-emerald-400" /> All-Rounders & Keepers
+                </span>
+                <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-amber-300" /> PDF & Excel Download
+                </span>
+              </div>
+
+              {/* Main Interactive Trigger Buttons */}
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => setSearch("")}
-                  className="text-xs text-slate-400 hover:text-white"
+                  onClick={() => {
+                    setIsExpanded(true);
+                    setTimeout(() => {
+                      const el = document.getElementById("players-content");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }, 60);
+                  }}
+                  className="group relative inline-flex items-center justify-center gap-3 w-full sm:w-auto rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 px-8 py-3.5 sm:py-4 text-xs sm:text-sm font-black uppercase tracking-wider text-[#0A0F1D] shadow-[0_0_35px_rgba(245,158,11,0.45)] hover:shadow-[0_0_55px_rgba(245,158,11,0.8)] hover:scale-105 active:scale-95 transition-all cursor-pointer overflow-hidden"
                 >
-                  ✕
+                  <FaIdCard className="text-base sm:text-lg text-[#0A0F1D] group-hover:scale-110 transition-transform" />
+                  <span>View Player Photocards</span>
+                  <span className="rounded-full bg-[#0A0F1D] px-2.5 py-0.5 text-[10px] sm:text-xs font-bold text-amber-300">
+                    {filteredPlayers.length} Athletes
+                  </span>
+                  <FaChevronDown className="text-xs group-hover:translate-y-0.5 transition-transform" />
                 </button>
-              )}
-            </div>
 
-            {/* Filter Dropdowns / Pills */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-              {/* Category Filter */}
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="rounded-xl border border-white/15 bg-[#050C1A] px-3 py-2 text-xs font-bold text-slate-200 outline-none focus:border-amber-400 cursor-pointer"
-              >
-                {categoryFilters.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+                <Link
+                  href="/player-registration"
+                  className="inline-flex items-center justify-center gap-2 w-full sm:w-auto rounded-full border border-white/20 bg-white/5 hover:bg-white/10 px-6 py-3.5 sm:py-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-white hover:text-amber-400 hover:border-amber-500/50 transition-all backdrop-blur-xl shadow-lg"
+                >
+                  <FaUserPlus className="text-amber-400 text-sm" />
+                  <span>Register Player</span>
+                </Link>
+              </div>
 
-              {/* Session Filter */}
-              <select
-                value={selectedSession}
-                onChange={(e) => setSelectedSession(e.target.value)}
-                className="rounded-xl border border-white/15 bg-[#050C1A] px-3 py-2 text-xs font-bold text-slate-200 outline-none focus:border-amber-400 cursor-pointer"
-              >
-                {sessionFilters.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-
-              {/* Refresh button */}
-              <button
-                type="button"
-                onClick={loadPlayers}
-                disabled={loading}
-                className="rounded-xl border border-white/15 bg-white/5 p-2 text-xs text-slate-300 hover:bg-white/10 cursor-pointer"
-                title="Refresh Players"
-              >
-                <FaRotateRight className={loading ? "animate-spin" : ""} />
-              </button>
+              <p className="mt-4 text-[11px] text-slate-400">
+                Photocards are hidden by default to keep the home page fast. Click above to view all cards.
+              </p>
             </div>
           </div>
-
-          {/* Quick Counter Info */}
-          <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-slate-400">
-            <span>
-              Showing <b className="text-white">{filteredPlayers.length}</b> player photocards
-            </span>
-            {(search || selectedCategory !== "All Roles" || selectedSession !== "All Sessions") && (
+        ) : (
+          /* ======================================================== */
+          /* 4. EXPANDED CONTENT (SHOWS PHOTOCARDS & FILTERS)         */
+          /* ======================================================== */
+          <div id="players-content" className="animate-in fade-in duration-300">
+            
+            {/* Top Toolbar: Collapse Button + Export Tools + Register */}
+            <div className="mb-6 pb-6 border-b border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
               <button
                 type="button"
                 onClick={() => {
-                  setSearch("");
-                  setSelectedCategory("All Roles");
-                  setSelectedSession("All Sessions");
+                  setIsExpanded(false);
+                  const el = document.getElementById("players");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="text-[11px] font-bold text-amber-400 hover:text-amber-300 cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-amber-300 hover:text-amber-200 transition-all cursor-pointer shadow-md"
               >
-                Reset All Filters
+                <FaChevronUp className="text-xs" />
+                <span>Hide / Collapse Photocards</span>
               </button>
-            )}
-          </div>
-        </div>
 
-        {/* ======================================================== */}
-        {/* 4. PHOTOCARD GRID DISPLAY                                */}
-        {/* ======================================================== */}
-        {filteredPlayers.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-white/20 p-12 text-center text-slate-400 max-w-md mx-auto">
-            <FaUsers className="text-4xl mx-auto mb-3 text-slate-500 opacity-60" />
-            <h3 className="text-base font-bold text-white mb-1">No Players Found</h3>
-            <p className="text-xs text-slate-400">
-              No registered player matches your current search or filter combination.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-10 justify-items-center">
-            {filteredPlayers.map((player, idx) => (
-              <PlayerPhotocard
-                key={player._id || idx}
-                player={player}
-                index={idx}
-                interactive={true}
-              />
-            ))}
+              <div className="flex items-center justify-center sm:justify-end gap-3 flex-wrap">
+                <ExportButtonGroup
+                  label="Download Player Directory"
+                  variant="outline"
+                  count={filteredPlayers.length}
+                  pdfLabel="Download player directory as PDF"
+                  excelLabel="Download player registry as Excel (.xlsx)"
+                  onExportPdf={() => {
+                    exportPlayersToPdf(filteredPlayers, {
+                      title: "Official Players Registry",
+                      filterDescription: "ESDM Premier League 2027 • Player Photocards",
+                    });
+                  }}
+                  onExportExcel={() => {
+                    exportPlayersToExcel(filteredPlayers);
+                  }}
+                />
+
+                <Link
+                  href="/player-registration"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#0A0F1D] hover:brightness-110 shadow-lg transition-all"
+                >
+                  <FaUserPlus className="text-xs" />
+                  <span>Register Player</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* Filter Controls (Search, Role, Session, Refresh) */}
+            <div className="mb-10 rounded-2xl border border-white/10 bg-[#0B1426]/80 p-4 sm:p-5 backdrop-blur-xl shadow-2xl">
+              <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+                {/* Search Input */}
+                <div className="flex min-w-[260px] flex-1 items-center gap-2.5 rounded-xl border border-white/15 bg-[#050C1A] px-3.5 py-2.5 text-xs text-slate-400">
+                  <FaMagnifyingGlass className="text-cyan-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by player name..."
+                    className="w-full bg-transparent text-white outline-none placeholder:text-slate-500 text-xs sm:text-sm font-medium"
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      className="text-xs text-slate-400 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Dropdowns */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                  {/* Category Filter */}
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="rounded-xl border border-white/15 bg-[#050C1A] px-3 py-2 text-xs font-bold text-slate-200 outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    {categoryFilters.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Session Filter */}
+                  <select
+                    value={selectedSession}
+                    onChange={(e) => setSelectedSession(e.target.value)}
+                    className="rounded-xl border border-white/15 bg-[#050C1A] px-3 py-2 text-xs font-bold text-slate-200 outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    {sessionFilters.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Refresh button */}
+                  <button
+                    type="button"
+                    onClick={loadPlayers}
+                    disabled={loading}
+                    className="rounded-xl border border-white/15 bg-white/5 p-2 text-xs text-slate-300 hover:bg-white/10 cursor-pointer"
+                    title="Refresh Players"
+                  >
+                    <FaRotateRight className={loading ? "animate-spin" : ""} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Counter Info */}
+              <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-slate-400">
+                <span>
+                  Showing <b className="text-white">{filteredPlayers.length}</b> player photocards
+                </span>
+                {(search || selectedCategory !== "All Roles" || selectedSession !== "All Sessions") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setSelectedCategory("All Roles");
+                      setSelectedSession("All Sessions");
+                    }}
+                    className="text-[11px] font-bold text-amber-400 hover:text-amber-300 cursor-pointer"
+                  >
+                    Reset All Filters
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Photocard Grid Display */}
+            {filteredPlayers.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-white/20 p-12 text-center text-slate-400 max-w-md mx-auto">
+                <FaUsers className="text-4xl mx-auto mb-3 text-slate-500 opacity-60" />
+                <h3 className="text-base font-bold text-white mb-1">No Players Found</h3>
+                <p className="text-xs text-slate-400">
+                  No registered player matches your current search or filter combination.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-10 justify-items-center">
+                {filteredPlayers.map((player, idx) => (
+                  <PlayerPhotocard
+                    key={player._id || idx}
+                    player={player}
+                    index={idx}
+                    interactive={true}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Bottom Collapse Button */}
+            <div className="mt-12 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsExpanded(false);
+                  const el = document.getElementById("players");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-[#111A30]/80 hover:bg-white/10 px-7 py-3 text-xs font-bold uppercase tracking-wider text-slate-300 hover:text-amber-400 transition-all cursor-pointer shadow-lg hover:border-amber-400/40"
+              >
+                <FaChevronUp className="text-xs" />
+                <span>Collapse Player Photocards</span>
+              </button>
+            </div>
+
           </div>
         )}
 

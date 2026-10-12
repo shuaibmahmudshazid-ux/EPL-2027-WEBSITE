@@ -20,7 +20,7 @@ export default function TournamentTeamsSection() {
           setLoading(false);
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     fetch("/api/auction/state", { cache: "no-store" })
       .then((res) => res.json())
@@ -29,7 +29,7 @@ export default function TournamentTeamsSection() {
           setTeams(data.teams);
           try {
             sessionStorage.setItem("epl_teams_cache", JSON.stringify(data.teams));
-          } catch (_) {}
+          } catch (_) { }
         }
       })
       .catch((err) => console.error("Error loading tournament teams:", err))
@@ -45,7 +45,7 @@ export default function TournamentTeamsSection() {
       <div className="absolute bottom-10 -right-20 size-[450px] rounded-full bg-blue-500/10 blur-[130px] pointer-events-none" />
 
       <div className="mx-auto w-[min(1450px,calc(100%-24px))] sm:w-[min(1450px,calc(100%-36px))] min-[781px]:w-[min(1450px,calc(100%-64px))] relative z-10">
-        
+
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1 mb-3.5 backdrop-blur-md">
@@ -58,7 +58,7 @@ export default function TournamentTeamsSection() {
             PARTICIPATING <span className="text-amber-400">TEAMS</span>
           </h2>
           <p className="mt-3 text-xs sm:text-base text-slate-400 font-normal leading-relaxed">
-            Elite squads battling for glory at Patuakhali Science and Technology University. 
+            Elite squads battling for glory at Patuakhali Science and Technology University.
             View team emblems, squad rosters, and live purse points.
           </p>
         </div>
@@ -85,56 +85,56 @@ export default function TournamentTeamsSection() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 sm:gap-7">
-          {teams.map((team, idx) => (
-            <div
-              key={team._id || idx}
-              className="group relative rounded-3xl border-2 border-white/10 bg-gradient-to-b from-[#111A30]/90 via-[#0C1425]/90 to-[#070D1E]/95 p-6 sm:p-7 text-center backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:border-amber-500/50 hover:-translate-y-2 hover:shadow-[0_20px_50px_rgba(245,158,11,0.2)] flex flex-col items-center justify-between min-h-[290px]"
-            >
-              {/* Top ambient card glow on hover */}
-              <div className="absolute -top-12 -right-12 size-32 rounded-full bg-amber-500/10 blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all" />
+            {teams.map((team, idx) => (
+              <div
+                key={team._id || idx}
+                className="group relative rounded-3xl border-2 border-white/10 bg-gradient-to-b from-[#111A30]/90 via-[#0C1425]/90 to-[#070D1E]/95 p-6 sm:p-7 text-center backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:border-amber-500/50 hover:-translate-y-2 hover:shadow-[0_20px_50px_rgba(245,158,11,0.2)] flex flex-col items-center justify-between min-h-[290px]"
+              >
+                {/* Top ambient card glow on hover */}
+                <div className="absolute -top-12 -right-12 size-32 rounded-full bg-amber-500/10 blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all" />
 
-              {/* Team Circular Emblem Section (Larger in circle with floating motion) */}
-              <div className="my-3 flex flex-col items-center">
-                <div className="group-hover:scale-110 transition-transform duration-500 animate-crest-float">
-                  <TeamCrest
-                    name={team.name}
-                    logoUrl={team.logoUrl}
-                    className="size-24 sm:size-28 md:size-32"
-                  />
+                {/* Team Circular Emblem Section (Larger in circle with floating motion) */}
+                <div className="my-3 flex flex-col items-center">
+                  <div className="group-hover:scale-110 transition-transform duration-500 animate-crest-float">
+                    <TeamCrest
+                      name={team.name}
+                      logoUrl={team.logoUrl}
+                      className="size-24 sm:size-28 md:size-32"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Team Name Section (Larger bold typography) */}
-              <div className="w-full my-2">
-                <h3 className="font-sans font-black text-base sm:text-lg md:text-xl text-white uppercase tracking-tight leading-snug drop-shadow">
-                  {team.name}
-                </h3>
-                <span className="inline-block mt-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                  {team.playerCount ? `${team.playerCount} Players` : "Franchise Squad"}
-                </span>
-              </div>
-
-              {/* Card Footer: Purse Balance & Live Link */}
-              <div className="mt-4 w-full pt-3.5 border-t border-white/10 flex items-center justify-between text-xs">
-                <div className="text-left">
-                  <span className="block text-[9px] font-bold uppercase text-slate-400">Purse Budget</span>
-                  <span className="font-mono font-black text-amber-400 text-sm">
-                    {team.pointsRemaining?.toLocaleString()} PTS
+                {/* Team Name Section (Larger bold typography) */}
+                <div className="w-full my-2">
+                  <h3 className="font-sans font-black text-base sm:text-lg md:text-xl text-white uppercase tracking-tight leading-snug drop-shadow">
+                    {team.name}
+                  </h3>
+                  <span className="inline-block mt-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                    {team.playerCount ? `${team.playerCount} Players` : "Franchise Squad"}
                   </span>
                 </div>
 
-                <Link
-                  href="/auction"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-110 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-[#0A0F1D] shadow-md transition-all"
-                >
-                  <span>Auction</span>
-                  <FaArrowRight className="text-[10px]" />
-                </Link>
-              </div>
+                {/* Card Footer: Purse Balance & Live Link */}
+                <div className="mt-4 w-full pt-3.5 border-t border-white/10 flex items-center justify-between text-xs">
+                  <div className="text-left">
+                    <span className="block text-[9px] font-bold uppercase text-slate-400">Purse Budget</span>
+                    <span className="font-mono font-black text-amber-400 text-sm">
+                      {team.pointsRemaining?.toLocaleString()} PTS
+                    </span>
+                  </div>
 
-            </div>
-          ))}
-        </div>
+                  <Link
+                    href="/auction"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-110 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-[#0A0F1D] shadow-md transition-all"
+                  >
+                    <span>Auction</span>
+                    <FaArrowRight className="text-[10px]" />
+                  </Link>
+                </div>
+
+              </div>
+            ))}
+          </div>
         )}
 
         {/* Bottom CTA to Auction Arena */}

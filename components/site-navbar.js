@@ -123,10 +123,17 @@ export default function SiteNavbar() {
                   ? false
                   : pathname === item.href;
 
+              const isPlayerLink = item.name === "Players" || item.href === "/#players";
+
               return (
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => {
+                    if (isPlayerLink && typeof window !== "undefined") {
+                      window.dispatchEvent(new CustomEvent("open-player-section"));
+                    }
+                  }}
                   className={`relative flex h-full items-center px-4 text-xs xl:text-sm font-bold tracking-wide transition-all ${
                     isActive
                       ? "text-amber-400 after:absolute after:bottom-0 after:left-4 after:right-4 after:h-0.5 after:bg-gradient-to-r after:from-amber-400 after:to-amber-500 after:shadow-[0_0_12px_rgba(245,158,11,0.8)]"
@@ -192,16 +199,24 @@ export default function SiteNavbar() {
           </div>
 
           <nav className="space-y-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block rounded-lg px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors"
-              >
-                {item.name}
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              const isPlayerLink = item.name === "Players" || item.href === "/#players";
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (isPlayerLink && typeof window !== "undefined") {
+                      window.dispatchEvent(new CustomEvent("open-player-section"));
+                    }
+                  }}
+                  className="block rounded-lg px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors"
+                >
+                  {item.name}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-xs">
