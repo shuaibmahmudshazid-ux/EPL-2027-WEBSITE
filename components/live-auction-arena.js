@@ -166,9 +166,12 @@ export default function LiveAuctionArena() {
   }, [isMuted]);
 
   useEffect(() => {
-    fetchState();
+    const timer = window.setTimeout(fetchState, 0);
     const interval = setInterval(fetchState, 1500);
-    return () => clearInterval(interval);
+    return () => {
+      window.clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, [fetchState]);
 
   // Client-side local timer tick down
@@ -224,7 +227,7 @@ export default function LiveAuctionArena() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggleFullscreen]);
 
-  const state = auctionData?.state || {};
+  const state = useMemo(() => auctionData?.state || {}, [auctionData]);
 
   // Check if auction is actively running from admin action
   const isAuctionActive =
@@ -324,12 +327,36 @@ export default function LiveAuctionArena() {
     localStorage.removeItem("epl_bidding_team");
   };
 
+  // Dynamic live team data (merged with real-time points from auctionData)
+  const myTeam = useMemo(() => {
+    if (!biddingTeam) return null;
+    const teams = auctionData?.teams || [];
+    const found = teams.find(
+      (t) =>
+        (biddingTeam._id && String(t._id) === String(biddingTeam._id)) ||
+        (biddingTeam.id && String(t._id) === String(biddingTeam.id)) ||
+        (biddingTeam.name && t.name.toLowerCase() === biddingTeam.name.toLowerCase()) ||
+        (biddingTeam.uniqueKey && t.uniqueKey && t.uniqueKey.toUpperCase() === biddingTeam.uniqueKey.toUpperCase())
+    );
+    return found ? { ...biddingTeam, ...found } : biddingTeam;
+  }, [biddingTeam, auctionData]);
+
   // Place live bid
   const handlePlaceBid = async () => {
-    if (!biddingTeam) {
+    const targetTeam = myTeam || biddingTeam;
+    if (!targetTeam) {
       setShowTeamModal(true);
       return;
     }
+
+    if (targetTeam._id && targetTeam.uniqueKey) {
+      try {
+        localStorage.setItem("epl_bidding_team", JSON.stringify(targetTeam));
+      } catch {
+        // ignore
+      }
+    }
+
     setBidError("");
     setIsSubmittingBid(true);
     try {
@@ -337,7 +364,9 @@ export default function LiveAuctionArena() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          uniqueKey: biddingTeam.uniqueKey,
+          uniqueKey: targetTeam.uniqueKey,
+          teamId: targetTeam._id || targetTeam.id,
+          teamName: targetTeam.name,
         }),
       });
       const data = await res.json();
@@ -349,6 +378,29 @@ export default function LiveAuctionArena() {
       setIsSubmittingBid(false);
     }
   };
+
+  const hasLeadingBidder = Boolean(
+    state.currentBidderTeam ||
+    state.currentBidderTeamName ||
+    (Array.isArray(state.bidHistory) && state.bidHistory.length > 0)
+  );
+
+  const teamPointsRemaining = myTeam?.pointsRemaining ?? 50000;
+  const currentBidAmt = Number(state.currentBid) || 0;
+  const basePriceAmt = Number(activePlayer?.basePrice) || Number(state.tierBasePrice) || 500;
+  const bidStep = currentBidAmt < 10000 ? 500 : 2000;
+  
+  // If no team has placed a bid yet, the next minimum bid is the base price!
+  const nextMinBid = !hasLeadingBidder ? basePriceAmt : currentBidAmt + bidStep;
+
+  const isLeadingBidder = Boolean(
+    hasLeadingBidder && myTeam && (
+      (state.currentBidderTeam && String(state.currentBidderTeam) === String(myTeam._id || myTeam.id)) ||
+      (state.currentBidderTeamName && state.currentBidderTeamName.toLowerCase() === myTeam.name.toLowerCase())
+    )
+  );
+
+  const canAffordNextBid = teamPointsRemaining >= nextMinBid;
 
   // SVG Circular Timer calculations (radius = 42, perimeter = 264)
   const maxSeconds = 15;
@@ -716,10 +768,10 @@ export default function LiveAuctionArena() {
                           </strong>
 
                           <span className="block text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-2.5">
-                            CURRENT BID:
+                            {hasLeadingBidder ? "CURRENT BID:" : "OPENING BID:"}
                           </span>
                           <strong className="block font-mono text-2xl xs:text-3xl sm:text-[34px] font-black text-amber-400 drop-shadow-[0_0_20px_rgba(245,158,11,0.5)] leading-tight">
-                            {activePlayer.currentBid?.toLocaleString()} PTS
+                            {(hasLeadingBidder ? state.currentBid : basePriceAmt)?.toLocaleString()} PTS
                           </strong>
 
                           {/* Leading Bidder Team */}
@@ -793,34 +845,121 @@ export default function LiveAuctionArena() {
                   </div>
                 )}
 
-                {/* Bidding Control Bar (If logged in as team) */}
-                {biddingTeam && (
-                  <div className="mt-4 pt-3.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-xs">
-                      <span className="text-slate-400">Your Team:</span>{" "}
-                      <b className="text-amber-400">{biddingTeam.name}</b> • Remaining:{" "}
-                      <b className="text-white font-mono">
-                        {biddingTeam.pointsRemaining?.toLocaleString() || "50,000"} PTS
-                      </b>
+                {/* ======================================================== */}
+                {/* BIDDING CONTROL BAR: START BIDDING -> ONGOING AUCTION     */}
+                {/* ======================================================== */}
+                <div className="mt-4 pt-3.5 border-t border-white/10">
+                  {!myTeam ? (
+                    /* Spectator / Not Authenticated as Team */
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-white/[0.03] p-3 rounded-2xl border border-white/10">
+                      <div className="text-xs text-slate-300">
+                        <span className="font-bold text-amber-400">Official Team Manager?</span> Authenticate to place bids from your device.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowTeamModal(true)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-xs font-black uppercase text-[#0A0F1D] shadow-md hover:scale-105 transition-all cursor-pointer"
+                      >
+                        <FaKey className="text-xs" />
+                        <span>Team Login to Bid</span>
+                      </button>
                     </div>
+                  ) : (
+                    /* Logged In Franchise Team */
+                    <div className="space-y-3">
+                      {/* Team Purse Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <TeamCrest name={myTeam.name} logoUrl={myTeam.logoUrl} className="size-5" />
+                          <span className="text-slate-400">Team:</span>
+                          <b className="text-amber-400 font-extrabold">{myTeam.name}</b>
+                        </div>
+                        <div className="text-slate-300">
+                          Purse: <b className="text-white font-mono">{teamPointsRemaining.toLocaleString()} PTS</b> remaining
+                        </div>
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={handlePlaceBid}
-                      disabled={isSubmittingBid}
-                      className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 px-6 py-2.5 text-xs font-black uppercase tracking-wider text-[#0A0F1D] shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95 transition-all disabled:opacity-60"
-                    >
-                      <FaGavel className="text-xs" />
-                      <span>{isSubmittingBid ? "Bidding..." : "Place Next Bid"}</span>
-                    </button>
-                  </div>
-                )}
+                      {/* Online Bidding Disabled by Admin */}
+                      {state.onlineBiddingEnabled === false ? (
+                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-center text-xs font-bold text-amber-300">
+                          ⚡ Auctioneer Mode: Bids are currently taken directly from the podium.
+                        </div>
+                      ) : state.hammerStatus === "sold" ? (
+                        <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/70 p-3 text-center text-xs font-black uppercase tracking-wider text-emerald-300">
+                          🏆 SOLD to {state.currentBidderTeamName} for ৳ {state.currentBid?.toLocaleString()} PTS
+                        </div>
+                      ) : state.hammerStatus === "unsold" ? (
+                        <div className="rounded-xl border border-red-500/40 bg-red-950/70 p-3 text-center text-xs font-black uppercase tracking-wider text-red-300">
+                          ✕ Player Passed / Unsold
+                        </div>
+                      ) : !hasLeadingBidder ? (
+                        /* OPTION 1: START BIDDING (ANY TEAM CAN CLICK TO OPEN BID AT BASE PRICE) */
+                        <div className="space-y-1.5">
+                          <button
+                            type="button"
+                            onClick={handlePlaceBid}
+                            disabled={isSubmittingBid || !canAffordNextBid}
+                            className="w-full cursor-pointer flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider text-[#0A0F1D] shadow-[0_0_25px_rgba(245,158,11,0.45)] hover:scale-[1.01] active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <FaGavel className="text-sm" />
+                            <span>
+                              {isSubmittingBid
+                                ? "Submitting Opening Bid..."
+                                : canAffordNextBid
+                                ? `▶ Start Bidding (৳ ${basePriceAmt.toLocaleString()})`
+                                : `⚠️ Insufficient Points for Base Price (৳ ${basePriceAmt.toLocaleString()})`}
+                            </span>
+                          </button>
+                          <p className="text-[10px] text-center text-slate-400">
+                            Click to place opening bid at base price ৳ {basePriceAmt.toLocaleString()}
+                          </p>
+                        </div>
+                      ) : (
+                        /* OPTION 2: ONGOING AUCTION WITH TOURNAMENT INCREMENTS */
+                          <div className="space-y-1.5">
+                            {isLeadingBidder ? (
+                              <div className="rounded-xl border border-emerald-500/50 bg-emerald-950/70 py-3 px-4 text-center text-xs font-black uppercase text-emerald-300 shadow-inner flex items-center justify-center gap-2">
+                                <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                                <span>✓ You are the Leading Bidder (৳ {currentBidAmt.toLocaleString()})</span>
+                              </div>
+                            ) : !canAffordNextBid ? (
+                              <button
+                                type="button"
+                                disabled
+                                className="w-full rounded-xl border border-red-500/30 bg-red-950/40 py-3 text-xs font-bold text-red-300 opacity-60 cursor-not-allowed"
+                              >
+                                ⚠️ Insufficient Points (Need ৳ {nextMinBid.toLocaleString()} | Have ৳ {teamPointsRemaining.toLocaleString()})
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handlePlaceBid}
+                                disabled={isSubmittingBid}
+                                className="w-full cursor-pointer flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider text-[#0A0F1D] shadow-[0_0_25px_rgba(245,158,11,0.5)] hover:scale-[1.01] active:scale-98 transition-all disabled:opacity-50"
+                              >
+                                <FaGavel className="text-sm" />
+                                <span>
+                                  {isSubmittingBid
+                                    ? "Submitting Bid..."
+                                    : `⚡ Bid ৳ ${nextMinBid.toLocaleString()} (+৳ ${bidStep.toLocaleString()})`}
+                                </span>
+                              </button>
+                            )}
+                            <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
+                              <span>Rule: {currentBidAmt < 10000 ? "+৳500 increment (<10k PTS)" : "+৳2,000 increment (≥10k PTS)"}</span>
+                              <span>Remaining: ৳ {teamPointsRemaining.toLocaleString()} PTS</span>
+                            </div>
+                          </div>
+                      )}
+                    </div>
+                  )}
 
-                {bidError && (
-                  <div className="mt-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-2 text-center text-xs text-rose-300 font-bold">
-                    {bidError}
-                  </div>
-                )}
+                  {bidError && (
+                    <div className="mt-2.5 rounded-xl border border-rose-500/40 bg-rose-950/70 p-2.5 text-center text-xs text-rose-300 font-bold">
+                      ⚠️ {bidError}
+                    </div>
+                  )}
+                </div>
 
               </div>
             </div>

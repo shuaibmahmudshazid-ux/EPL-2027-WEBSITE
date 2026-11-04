@@ -16,8 +16,12 @@ export const GET = async () => {
       auctionCode: "LIVE",
       status: "idle",
       hammerStatus: "waiting",
+      onlineBiddingEnabled: true,
     });
     state = state.toObject();
+  }
+  if (state.onlineBiddingEnabled === undefined) {
+    state.onlineBiddingEnabled = true;
   }
 
   // Fetch all active teams with populated player summaries
@@ -91,10 +95,21 @@ export const GET = async () => {
 
   // Calculate next bid for current player
   let currentBase = state.tierBasePrice || 500;
+  const currP = state.players?.[state.currentPlayerIndex];
+  if (currP && currP.basePrice > 0) {
+    currentBase = currP.basePrice;
+  }
   if (state.currentPlayerIndex === 4 && state.fifthPlayerCalculatedBasePrice) {
     currentBase = state.fifthPlayerCalculatedBasePrice;
   }
-  const nextMinimumBid = calculateNextBid(state.currentBid, currentBase);
+
+  const hasLeadingBidder = Boolean(
+    state.currentBidderTeam ||
+    state.currentBidderTeamName ||
+    (Array.isArray(state.bidHistory) && state.bidHistory.length > 0)
+  );
+
+  const nextMinimumBid = hasLeadingBidder ? calculateNextBid(state.currentBid, currentBase) : currentBase;
 
   return Response.json({
     state,

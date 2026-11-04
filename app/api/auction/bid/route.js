@@ -1,18 +1,16 @@
+import mongoose from "mongoose";
 import connectToDatabase from "../../../../lib/mongodb";
 import AuctionState from "../../../../models/auctionState";
 import Team from "../../../../models/team";
 import { calculateNextBid, DEFAULT_TEAM_POINTS } from "../../../../lib/auctionRules";
+import { getSession } from "../../../../lib/adminAuth";
 
 export const runtime = "nodejs";
 
 export const POST = async (request) => {
   try {
     const body = await request.json();
-    const { teamId, customAmount } = body;
-
-    if (!teamId) {
-      return Response.json({ error: "Team is required to bid." }, { status: 400 });
-    }
+    const { teamId, uniqueKey, teamName, customAmount } = body;
 
     await connectToDatabase();
 
@@ -24,42 +22,81 @@ export const POST = async (request) => {
       );
     }
 
-    if (!["bidding_open", "going_once", "going_twice"].includes(state.hammerStatus)) {
+    // Check if online bidding is disabled by Admin (unless called by admin)
+    const adminSession = await getSession();
+    if (!adminSession && state.onlineBiddingEnabled === false) {
       return Response.json(
-        { error: "Bidding is closed for this player." },
+        { error: "Online bidding is disabled by the Admin. Bids are placed live via the auctioneer." },
+        { status: 403 }
+      );
+    }
+
+    if (!["bidding_open", "waiting", "going_once", "going_twice"].includes(state.hammerStatus)) {
+      return Response.json(
+        { error: "Bidding is currently closed for this player." },
         { status: 400 }
       );
     }
 
-    // Prevent team from bidding against themselves
-    if (state.currentBidderTeam && state.currentBidderTeam.toString() === teamId.toString()) {
-      return Response.json(
-        { error: "Your team is already the highest bidder!" },
-        { status: 400 }
-      );
+    // Resolve team by teamId, uniqueKey, OR teamName
+    let team = null;
+    if (teamId && mongoose.isValidObjectId(teamId)) {
+      try {
+        team = await Team.findById(teamId).populate("players", "soldPrice fullName");
+      } catch {
+        team = null;
+      }
+    }
+    if (!team && uniqueKey && typeof uniqueKey === "string" && uniqueKey.trim()) {
+      team = await Team.findOne({ uniqueKey: uniqueKey.trim().toUpperCase() }).populate("players", "soldPrice fullName");
+    }
+    if (!team && teamName && typeof teamName === "string" && teamName.trim()) {
+      team = await Team.findOne({ name: new RegExp(`^${teamName.trim()}$`, "i") }).populate("players", "soldPrice fullName");
     }
 
-    // Verify team and remaining budget
-    const team = await Team.findById(teamId).populate("players", "soldPrice");
     if (!team) {
-      return Response.json({ error: "Team not found." }, { status: 404 });
+      return Response.json(
+        { error: "Team not found. Please log in with your team key." },
+        { status: 404 }
+      );
     }
 
-    // Rule: After acquiring a player in a tier, the same team cannot bid until next tier
-    const alreadyAcquiredInTier = (state.players || []).find(
-      (p) =>
-        p.status === "sold" &&
-        p.soldToTeam &&
-        p.soldToTeam.toString() === teamId.toString()
+    // Check if a team has already placed a bid for the active athlete
+    const hasPreviousBidder = Boolean(
+      state.currentBidderTeam ||
+      state.currentBidderTeamName ||
+      (Array.isArray(state.bidHistory) && state.bidHistory.length > 0)
     );
 
-    if (alreadyAcquiredInTier) {
+    // Prevent team from bidding against themselves ONLY if they are already the highest bidder
+    if (
+      hasPreviousBidder &&
+      state.currentBidderTeam &&
+      state.currentBidderTeam.toString() === team._id.toString()
+    ) {
       return Response.json(
-        {
-          error: `Tier Quota Reached: ${team.name} already acquired ${alreadyAcquiredInTier.fullName} in this tier (${state.tierName || "Current Tier"}). You cannot bid again until the next tier begins!`,
-        },
+        { error: `${team.name} is already the highest bidder!` },
         { status: 400 }
       );
+    }
+
+    // Quota rule: only enforce tier quota if in a formal 5-player tier auction
+    if (state.tierId && Array.isArray(state.players) && state.players.length === 5) {
+      const alreadyAcquiredInTier = state.players.find(
+        (p) =>
+          p.status === "sold" &&
+          p.soldToTeam &&
+          p.soldToTeam.toString() === team._id.toString()
+      );
+
+      if (alreadyAcquiredInTier) {
+        return Response.json(
+          {
+            error: `Tier Quota Reached: ${team.name} already acquired ${alreadyAcquiredInTier.fullName} in this tier (${state.tierName || "Current Tier"}). You cannot bid again until the next tier begins!`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const pointsSpent = (team.players || []).reduce(
@@ -70,11 +107,17 @@ export const POST = async (request) => {
 
     // Determine current player's base price
     let currentBase = state.tierBasePrice || 500;
+    const currP = state.players?.[state.currentPlayerIndex];
+    if (currP && currP.basePrice > 0) {
+      currentBase = currP.basePrice;
+    }
     if (state.currentPlayerIndex === 4 && state.fifthPlayerCalculatedBasePrice) {
       currentBase = state.fifthPlayerCalculatedBasePrice;
     }
 
-    const minNextBid = calculateNextBid(state.currentBid, currentBase);
+    // If no team has placed a bid yet, the opening bid is EXACTLY base price!
+    // If a bid has already been placed, apply increment rules (+500 under 10k, +2000 at/above 10k)
+    const minNextBid = hasPreviousBidder ? calculateNextBid(state.currentBid, currentBase) : currentBase;
     const bidAmount = customAmount ? Math.max(minNextBid, Number(customAmount)) : minNextBid;
 
     // Check if team has enough points
@@ -92,7 +135,7 @@ export const POST = async (request) => {
     state.currentBidderTeam = team._id;
     state.currentBidderTeamName = team.name;
     state.currentBidderTeamLogo = team.logoUrl;
-    state.hammerStatus = "bidding_open"; // Reset hammer count on new bid
+    state.hammerStatus = "bidding_open";
     state.timerSeconds = 15;
     state.timerEndAt = new Date(Date.now() + 15000);
 
