@@ -26,7 +26,8 @@ export const POST = async (request) => {
       (sum, p) => sum + (Number(p.soldPrice) || 0),
       0
     );
-    const pointsRemaining = Math.max(0, DEFAULT_TEAM_POINTS - pointsSpent);
+    const totalPoints = typeof team.points === "number" ? team.points : DEFAULT_TEAM_POINTS;
+    const pointsRemaining = Math.max(0, totalPoints - pointsSpent);
 
     return Response.json({
       success: true,
@@ -37,7 +38,7 @@ export const POST = async (request) => {
         logoUrl: team.logoUrl,
         pointsRemaining,
         pointsSpent,
-        totalPoints: DEFAULT_TEAM_POINTS,
+        totalPoints,
         playerCount: (team.players || []).length,
       },
     });

@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const queuedPlayerSchema = new mongoose.Schema(
   {
     player: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true },
-    orderIndex: { type: Number, required: true },
+    orderIndex: { type: Number, required: true }, // 0 to 4 (1st to 5th)
     fullName: { type: String, required: true },
     photoUrl: { type: String, default: null },
     playerId: { type: String },
@@ -45,13 +45,12 @@ const auctionStateSchema = new mongoose.Schema(
       enum: ["idle", "in_progress", "paused", "completed"],
       default: "idle",
     },
-    onlineBiddingEnabled: { type: Boolean, default: true },
     category: { type: String, default: null },
     tierId: { type: mongoose.Schema.Types.ObjectId, ref: "AuctionTier", default: null },
     tierName: { type: String, default: null },
     tierBasePrice: { type: Number, default: 0 },
     players: { type: [queuedPlayerSchema], default: [] },
-    currentPlayerIndex: { type: Number, default: 0 },
+    currentPlayerIndex: { type: Number, default: 0 }, // 0 to 4
     currentBid: { type: Number, default: 0 },
     currentBidderTeam: { type: mongoose.Schema.Types.ObjectId, ref: "Team", default: null },
     currentBidderTeamName: { type: String, default: null },
@@ -71,8 +70,4 @@ const auctionStateSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-if (mongoose.models.AuctionState) {
-  delete mongoose.models.AuctionState;
-}
-
-export default mongoose.model("AuctionState", auctionStateSchema);
+export default mongoose.models.AuctionState ?? mongoose.model("AuctionState", auctionStateSchema);

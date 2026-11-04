@@ -15,13 +15,21 @@ import {
   FaUsers,
   FaXmark,
 } from "react-icons/fa6";
+import ExportButtonGroup from "./export-button-group";
+import {
+  exportAuctionTiersToPdf,
+  exportAuctionTiersToExcel,
+  exportSingleTierToPdf,
+  exportSingleTierToExcel,
+  getFormattedDate,
+} from "../lib/export-utils";
 
 const DEFAULT_CATEGORIES = [
+  "ICON PLAYER",
   "Batsman",
   "Bowler",
+  "ALL ROUNDER",
   "Wicket Keeper (Batsman)",
-  "Batting All-Rounder",
-  "Bowling All-Rounder",
 ];
 
 const inputClass =
@@ -242,21 +250,43 @@ const TierModalContent = ({ onClose, onSave, tierToEdit, currentCategory, allCat
 // ========================================================
 // ADD PLAYERS TO TIER MODAL CONTENT
 // ========================================================
-const AddPlayersModalContent = ({ onClose, tier, availablePlayers, onAssign }) => {
+const AddPlayersModalContent = ({
+  onClose,
+  tier,
+  availablePlayers,
+  onAssign,
+  allCategories = [],
+}) => {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
-  const [filterMode, setFilterMode] = useState("unassigned");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [filterMode, setFilterMode] = useState("all");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const relevantPlayers = availablePlayers.filter((player) => {
-    const inCategory = (player.categories || []).includes(tier.category);
-    if (!inCategory) return false;
-
-    if (filterMode === "unassigned") {
-      return !player.auctionTier && player.tier !== tier.name;
+    // 1. Category filter
+    if (categoryFilter !== "all") {
+      const inCat = (player.categories || []).includes(categoryFilter);
+      if (!inCat) return false;
     }
-    return player.auctionTier?._id !== tier._id && player.tier !== tier.name;
+
+    // 2. Exclude players already in THIS specific tier
+    const pTierId =
+      typeof player.auctionTier === "object"
+        ? player.auctionTier?._id
+        : player.auctionTier;
+    const isAlreadyInThisTier =
+      (pTierId && String(pTierId) === String(tier._id)) ||
+      (player.tier === tier.name &&
+        (player.categories || []).includes(tier.category));
+    if (isAlreadyInThisTier) return false;
+
+    // 3. Filter mode
+    if (filterMode === "unassigned") {
+      return !player.auctionTier && !player.tier;
+    }
+    return true;
   });
 
   const filteredPlayers = relevantPlayers.filter((player) => {
@@ -298,14 +328,14 @@ const AddPlayersModalContent = ({ onClose, tier, availablePlayers, onAssign }) =
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
       <div
-        className="flex max-h-[88vh] w-full max-w-[620px] flex-col rounded-lg border border-white/15 bg-[#031827] p-5 shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-[660px] flex-col rounded-lg border border-white/15 bg-[#031827] p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-start justify-between border-b border-white/10 pb-3">
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2">
               <FaUserPlus className="text-[#d4a84f]" />
-              Add Players to {tier.name}
+              Add / Move Players to {tier.name}
             </h3>
             <p className="mt-0.5 text-xs text-[#d4a84f]">
               Category: <span className="font-semibold text-white">{tier.category}</span> • Base Price:{" "}
@@ -329,7 +359,7 @@ const AddPlayersModalContent = ({ onClose, tier, availablePlayers, onAssign }) =
 
         {/* SEARCH & FILTERS */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="flex flex-1 items-center gap-2 rounded border border-white/25 bg-[#02121f] px-3 py-1.5 text-xs text-[#aeb9bf]">
+          <div className="flex flex-1 min-w-[200px] items-center gap-2 rounded border border-white/25 bg-[#02121f] px-3 py-1.5 text-xs text-[#aeb9bf]">
             <FaMagnifyingGlass />
             <input
               className="w-full bg-transparent text-white outline-none placeholder:text-[#7c8790]"
@@ -339,7 +369,30 @@ const AddPlayersModalContent = ({ onClose, tier, availablePlayers, onAssign }) =
             />
           </div>
 
+          <select
+            className="rounded border border-white/20 bg-[#02121f] px-2.5 py-1.5 text-xs text-amber-300 outline-none cursor-pointer"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            title="Filter by original role/category"
+          >
+            <option value="all">All Categories</option>
+            {allCategories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+
           <div className="flex rounded border border-white/20 bg-[#02121f] p-0.5 text-[11px]">
+            <button
+              type="button"
+              className={`rounded px-2.5 py-1 font-medium cursor-pointer ${
+                filterMode === "all" ? "bg-[#b8872f] text-white" : "text-[#9faab2] hover:text-white"
+              }`}
+              onClick={() => setFilterMode("all")}
+            >
+              All (Move Any)
+            </button>
             <button
               type="button"
               className={`rounded px-2.5 py-1 font-medium cursor-pointer ${
@@ -348,15 +401,6 @@ const AddPlayersModalContent = ({ onClose, tier, availablePlayers, onAssign }) =
               onClick={() => setFilterMode("unassigned")}
             >
               Unassigned Only
-            </button>
-            <button
-              type="button"
-              className={`rounded px-2.5 py-1 font-medium cursor-pointer ${
-                filterMode === "all" ? "bg-[#b8872f] text-white" : "text-[#9faab2] hover:text-white"
-              }`}
-              onClick={() => setFilterMode("all")}
-            >
-              All in Category
             </button>
           </div>
         </div>
@@ -417,7 +461,14 @@ const AddPlayersModalContent = ({ onClose, tier, availablePlayers, onAssign }) =
                       </div>
                     )}
                     <div>
-                      <p className="text-xs font-bold text-white">{player.fullName}</p>
+                      <p className="text-xs font-bold text-white flex items-center gap-2">
+                        <span>{player.fullName}</span>
+                        {(player.categories || []).length > 0 && (
+                          <span className="rounded bg-white/10 px-1.5 py-0.2 text-[9px] font-normal text-slate-300">
+                            {player.categories.join(", ")}
+                          </span>
+                        )}
+                      </p>
                       <p className="text-[11px] text-[#8b979d]">
                         ID: {player.playerId} • Session: {player.session}
                       </p>
@@ -426,7 +477,7 @@ const AddPlayersModalContent = ({ onClose, tier, availablePlayers, onAssign }) =
 
                   <div className="text-right">
                     {currentTierName ? (
-                      <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-medium text-[#ffd37f]">
+                      <span className="rounded bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-medium text-amber-300">
                         In {currentTierName}
                       </span>
                     ) : (
@@ -446,25 +497,150 @@ const AddPlayersModalContent = ({ onClose, tier, availablePlayers, onAssign }) =
           <p className="text-xs text-[#9faab2]">
             Selected: <b className="text-[#d4a84f]">{selectedIds.length}</b> player(s)
           </p>
-          <div className="flex gap-2">
+
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="rounded border border-white/20 px-3 py-1.5 text-xs font-bold text-[#ccd4d8] hover:bg-white/10 cursor-pointer"
+              className="rounded px-3 py-1.5 text-xs text-[#9faab2] hover:text-white cursor-pointer"
               onClick={onClose}
               disabled={submitting}
             >
               Cancel
             </button>
+
             <button
               type="button"
-              className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-1.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-50 cursor-pointer"
               onClick={handleConfirm}
-              disabled={submitting || selectedIds.length === 0}
+              disabled={selectedIds.length === 0 || submitting}
+              className="flex items-center gap-1.5 rounded bg-gradient-to-r from-[#d4a84f] to-[#b8872f] px-4 py-2 text-xs font-bold text-black hover:brightness-110 disabled:opacity-50 cursor-pointer shadow-md"
             >
-              {submitting ? "Adding..." : `Add Selected (${selectedIds.length})`}
+              <FaCheck />
+              {submitting ? "Moving..." : `Move / Add Selected (${selectedIds.length}) to ${tier.name}`}
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// ========================================================
+// EDIT PLAYER PRICE MODAL
+// ========================================================
+const EditPlayerPriceModal = ({ data, onClose, onSave }) => {
+  const { player, tier } = data;
+  const [price, setPrice] = useState(
+    player.basePrice !== undefined ? String(player.basePrice) : String(tier.basePrice || 0)
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const num = Math.max(0, Number(price) || 0);
+    try {
+      setSubmitting(true);
+      setError("");
+      await onSave(player._id, num);
+      onClose();
+    } catch (err) {
+      setError(err.message || "Failed to update player base price.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl border border-amber-500/40 bg-[#031827] p-5 shadow-2xl text-white"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 font-bold">
+              ৳
+            </span>
+            <div>
+              <h3 className="text-sm font-bold text-white">Edit Player Base Price</h3>
+              <p className="text-[11px] text-[#8b979d]">
+                {player.fullName} ({tier.name})
+              </p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer">
+            <FaXmark />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-3 rounded-lg bg-rose-500/20 border border-rose-500/40 p-2 text-xs text-rose-300">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">
+              Base Price (৳ BDT)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="50"
+              required
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="w-full rounded-xl border border-white/25 bg-[#02121f] px-3.5 py-2 text-sm font-mono font-bold text-amber-300 outline-none focus:border-[#d4a84f]"
+            />
+            <p className="mt-1 text-[10px] text-[#7c8790]">
+              Tier default base price: ৳ {(tier.basePrice || 0).toLocaleString()}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-slate-400">Quick set:</span>
+            {[250, 300, 400, 500, 600].map((val) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setPrice(String(val))}
+                className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-bold text-amber-300 hover:bg-white/20 cursor-pointer"
+              >
+                ৳{val}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPrice(String(tier.basePrice || 0))}
+              className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 hover:bg-amber-500/30 cursor-pointer ml-auto"
+            >
+              Reset to Tier
+            </button>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="rounded-xl border border-white/20 px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 px-4 py-1.5 text-xs font-bold text-slate-950 hover:brightness-110 shadow-md disabled:opacity-50 cursor-pointer"
+            >
+              <FaCheck />
+              {submitting ? "Saving..." : "Save Base Price"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -487,6 +663,7 @@ const AdminAuctionTiersView = () => {
   const [isTierModalOpen, setIsTierModalOpen] = useState(false);
   const [tierToEdit, setTierToEdit] = useState(null);
   const [activeTierForAdd, setActiveTierForAdd] = useState(null);
+  const [editingPlayerPrice, setEditingPlayerPrice] = useState(null);
 
   // Unassigned batch selection
   const [selectedUnassignedIds, setSelectedUnassignedIds] = useState([]);
@@ -582,22 +759,31 @@ const AdminAuctionTiersView = () => {
     if (effectiveCategory === "all") {
       return searchedPlayers.filter((p) => !p.auctionTier && !p.tier);
     }
-    return searchedPlayers.filter(
+    const inCat = searchedPlayers.filter(
       (p) => (p.categories || []).includes(effectiveCategory) && !p.auctionTier && !p.tier
     );
+    // For ICON PLAYER (which is not a default registration category), allow picking from any unassigned player if none specifically categorized
+    if (inCat.length === 0 && effectiveCategory === "ICON PLAYER") {
+      return searchedPlayers.filter((p) => !p.auctionTier && !p.tier);
+    }
+    return inCat;
   }, [searchedPlayers, effectiveCategory]);
 
-  // Helper to get players in a tier
+  // Helper to get players in a tier (robustly matches across categories and object/string IDs)
   const getPlayersInTier = (tier) => {
+    if (!tier?._id) return [];
+    const tierIdStr = String(tier._id);
     return searchedPlayers.filter((p) => {
       if (p.auctionTier) {
-        const idMatch =
-          typeof p.auctionTier === "object"
-            ? p.auctionTier._id === tier._id
-            : p.auctionTier === tier._id;
-        if (idMatch) return true;
+        const pTierId =
+          typeof p.auctionTier === "object" ? p.auctionTier._id : p.auctionTier;
+        if (pTierId && String(pTierId) === tierIdStr) return true;
       }
-      return p.tier === tier.name && (p.categories || []).includes(tier.category);
+      return (
+        p.tier &&
+        p.tier === tier.name &&
+        (!tier.category || (p.categories || []).includes(tier.category))
+      );
     });
   };
 
@@ -679,6 +865,23 @@ const AdminAuctionTiersView = () => {
     }
   };
 
+  const handleUpdatePlayerPrice = async (playerId, newBasePrice) => {
+    const res = await fetch(`/api/players/${playerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ basePrice: newBasePrice }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to update player base price.");
+
+    setPlayers((prev) =>
+      prev.map((p) => (p._id === playerId ? { ...p, basePrice: newBasePrice } : p))
+    );
+
+    showSuccess(`Player base price updated to ৳ ${newBasePrice.toLocaleString()}!`);
+  };
+
   // Batch assign from unassigned panel
   const handleBatchAssign = async () => {
     if (!batchTargetTierId || selectedUnassignedIds.length === 0) return;
@@ -721,7 +924,53 @@ const AdminAuctionTiersView = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* MASTER WHOLE LIST EXPORT (ALL CATEGORIES & TIERS AT ONCE) */}
+            <ExportButtonGroup
+              label="Download Whole Tier List"
+              variant="gold"
+              pdfLabel="Download Complete Master Tier & Player List (All Categories at once) as PDF"
+              excelLabel="Download Complete Master Tier & Player List (All Categories at once) as Excel (.xlsx)"
+              onExportPdf={() => {
+                exportAuctionTiersToPdf(tiers, players, {
+                  title: "Official Master Auction Tiers & Player Pool",
+                  filterDescription: `Master All-Categories Export • Total Tiers: ${tiers.length} • Total Registered Players: ${players.length}`,
+                  category: "Master_All_Tiers",
+                  includeRoster: true,
+                });
+              }}
+              onExportExcel={() => {
+                exportAuctionTiersToExcel(tiers, players, {
+                  category: "Master_All_Categories",
+                  fileName: `EPL_2027_Master_Auction_Tiers_All_${getFormattedDate().fileSuffix}.xlsx`,
+                });
+              }}
+            />
+
+            {/* CONTEXTUAL CATEGORY EXPORT */}
+            {effectiveCategory !== "all" && (
+              <ExportButtonGroup
+                label={`Download ${effectiveCategory}`}
+                variant="outline"
+                pdfLabel={`Download ${effectiveCategory} Tiers as PDF`}
+                excelLabel={`Download ${effectiveCategory} Tiers as Excel`}
+                onExportPdf={() => {
+                  exportAuctionTiersToPdf(categoryTiers, searchedPlayers, {
+                    title: `${effectiveCategory} - Auction Tiers & Player Pool`,
+                    filterDescription: `Category: ${effectiveCategory} • Total Tiers: ${categoryTiers.length}`,
+                    category: effectiveCategory,
+                    includeRoster: true,
+                  });
+                }}
+                onExportExcel={() => {
+                  exportAuctionTiersToExcel(categoryTiers, searchedPlayers, {
+                    category: effectiveCategory,
+                    fileName: `EPL_2027_Auction_Tiers_${effectiveCategory.replace(/[^a-zA-Z0-9_-]/g, "_")}_${getFormattedDate().fileSuffix}.xlsx`,
+                  });
+                }}
+              />
+            )}
+
             <button
               type="button"
               onClick={() => {
@@ -872,17 +1121,40 @@ const AdminAuctionTiersView = () => {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setTierToEdit(null);
-                setIsTierModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 rounded border border-[#d4a84f]/60 bg-[#76511d]/40 px-3 py-1.5 text-xs font-bold text-[#f2d590] hover:bg-[#76511d] cursor-pointer"
-            >
-              <FaPlus />
-              Add Tier for {effectiveCategory}
-            </button>
+            <div className="flex items-center gap-2">
+              <ExportButtonGroup
+                variant="compact"
+                label="Export Category"
+                pdfLabel={`Download ${effectiveCategory} Tiers as PDF`}
+                excelLabel={`Download ${effectiveCategory} Tiers as Excel`}
+                onExportPdf={() => {
+                  exportAuctionTiersToPdf(categoryTiers, searchedPlayers, {
+                    title: `${effectiveCategory} - Auction Tiers & Player Pool`,
+                    filterDescription: `Category: ${effectiveCategory} • Total Tiers: ${categoryTiers.length}`,
+                    category: effectiveCategory,
+                    includeRoster: true,
+                  });
+                }}
+                onExportExcel={() => {
+                  exportAuctionTiersToExcel(categoryTiers, searchedPlayers, {
+                    category: effectiveCategory,
+                    fileName: `EPL_2027_Auction_Tiers_${effectiveCategory.replace(/[^a-zA-Z0-9_-]/g, "_")}_${getFormattedDate().fileSuffix}.xlsx`,
+                  });
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTierToEdit(null);
+                  setIsTierModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 rounded border border-[#d4a84f]/60 bg-[#76511d]/40 px-3 py-1.5 text-xs font-bold text-[#f2d590] hover:bg-[#76511d] cursor-pointer"
+              >
+                <FaPlus />
+                Add Tier for {effectiveCategory}
+              </button>
+            </div>
           </div>
 
           {/* TIERS GRID */}
@@ -927,8 +1199,20 @@ const AdminAuctionTiersView = () => {
                             </span>
                           </div>
                           <div className="mt-1 flex items-center gap-3 text-xs text-[#8b979d]">
-                            <span>
-                              Base: <b className="text-[#d4a84f]">৳ {tier.basePrice?.toLocaleString() || 0}</b>
+                            <span className="flex items-center gap-1.5">
+                              Base:{" "}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTierToEdit(tier);
+                                  setIsTierModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 rounded bg-[#76511d]/50 border border-[#d4a84f]/40 px-1.5 py-0.5 text-xs font-bold text-[#f2d590] hover:bg-[#76511d] hover:text-white transition-colors cursor-pointer"
+                                title="Click to edit tier base price"
+                              >
+                                <span>৳ {tier.basePrice?.toLocaleString() || 0}</span>
+                                <FaPen className="text-[9px] opacity-70" />
+                              </button>
                             </span>
                             <span>• Order: #{tier.order || 1}</span>
                           </div>
@@ -940,6 +1224,22 @@ const AdminAuctionTiersView = () => {
                         </div>
 
                         <div className="flex items-center gap-1">
+                          <ExportButtonGroup
+                            variant="compact"
+                            align="right"
+                            label="Export"
+                            pdfLabel={`Download ${tier.name} (PDF)`}
+                            excelLabel={`Download ${tier.name} (Excel)`}
+                            onExportPdf={() => {
+                              exportSingleTierToPdf(tier, tierPlayers, {
+                                title: `EPL 2027 • TIER SHEET - ${tier.category} | ${tier.name}`,
+                              });
+                            }}
+                            onExportExcel={() => {
+                              exportSingleTierToExcel(tier, tierPlayers);
+                            }}
+                          />
+
                           <button
                             type="button"
                             onClick={() => {
@@ -1007,25 +1307,44 @@ const AdminAuctionTiersView = () => {
                               </div>
                             </div>
 
+                            {/* BASE PRICE BADGE & EDIT BUTTON */}
+                            <button
+                              type="button"
+                              onClick={() => setEditingPlayerPrice({ player, tier })}
+                              className="inline-flex items-center gap-1 rounded bg-[#76511d]/50 border border-[#d4a84f]/40 px-2 py-0.5 text-[10px] font-bold text-[#f2d590] hover:bg-[#76511d] hover:border-amber-300 transition-all cursor-pointer shrink-0"
+                              title="Click to edit player's base price"
+                            >
+                              <span>৳ {(player.basePrice !== undefined ? player.basePrice : tier.basePrice || 0).toLocaleString()}</span>
+                              <FaPen className="text-[8px] opacity-70" />
+                            </button>
+
                             {/* ACTIONS: MOVE OR REMOVE */}
                             <div className="flex items-center gap-1 shrink-0">
                               <select
-                                className="rounded border border-white/15 bg-[#031827] px-1.5 py-1 text-[10px] text-[#ccd4d8] outline-none"
+                                className="rounded border border-white/20 bg-[#031827] px-2 py-1 text-[10px] text-amber-300 outline-none cursor-pointer hover:border-amber-400 focus:border-amber-400 max-w-[135px]"
                                 value={tier._id}
                                 onChange={(e) => handleQuickMove(player._id, e.target.value)}
-                                title="Move to another tier"
+                                title="Move player to any tier across all categories"
                               >
                                 <option value={tier._id} disabled>
                                   Move to...
                                 </option>
-                                {categoryTiers
-                                  .filter((t) => t._id !== tier._id)
-                                  .map((otherTier) => (
-                                    <option key={otherTier._id} value={otherTier._id}>
-                                      {otherTier.name}
-                                    </option>
-                                  ))}
-                                <option value="__unassign">✕ Unassign</option>
+                                {allCategories.map((cat) => {
+                                  const otherTiersInCat = tiers.filter(
+                                    (t) => t.category === cat && String(t._id) !== String(tier._id)
+                                  );
+                                  if (otherTiersInCat.length === 0) return null;
+                                  return (
+                                    <optgroup key={cat} label={`── ${cat} ──`} className="text-slate-400 bg-[#02121f]">
+                                      {otherTiersInCat.map((otherTier) => (
+                                        <option key={otherTier._id} value={otherTier._id} className="text-white">
+                                          {otherTier.name} (৳ {otherTier.basePrice || 0})
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  );
+                                })}
+                                <option value="__unassign" className="text-rose-400 font-bold">✕ Unassign from Tier</option>
                               </select>
 
                               <button
@@ -1078,12 +1397,20 @@ const AdminAuctionTiersView = () => {
                     value={batchTargetTierId}
                     onChange={(e) => setBatchTargetTierId(e.target.value)}
                   >
-                    <option value="">-- Choose Tier --</option>
-                    {categoryTiers.map((t) => (
-                      <option key={t._id} value={t._id}>
-                        {t.name} (৳ {t.basePrice})
-                      </option>
-                    ))}
+                    <option value="">-- Choose Target Tier --</option>
+                    {allCategories.map((cat) => {
+                      const catTiersList = tiers.filter((t) => t.category === cat);
+                      if (catTiersList.length === 0) return null;
+                      return (
+                        <optgroup key={cat} label={`── ${cat} ──`} className="text-slate-400 bg-[#02121f]">
+                          {catTiersList.map((t) => (
+                            <option key={t._id} value={t._id} className="text-white">
+                              {t.name} (৳ {t.basePrice || 0})
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
                   </select>
 
                   <button
@@ -1176,7 +1503,7 @@ const AdminAuctionTiersView = () => {
                         </td>
                         <td className="px-2 py-2 text-right">
                           <select
-                            className="rounded border border-white/20 bg-[#02121f] px-2 py-1 text-xs text-white outline-none cursor-pointer"
+                            className="rounded border border-white/20 bg-[#02121f] px-2 py-1 text-xs text-amber-300 outline-none cursor-pointer focus:border-[#d4a84f]"
                             defaultValue=""
                             onChange={(e) => {
                               if (e.target.value) {
@@ -1187,11 +1514,19 @@ const AdminAuctionTiersView = () => {
                             <option value="" disabled>
                               Assign to Tier...
                             </option>
-                            {categoryTiers.map((t) => (
-                              <option key={t._id} value={t._id}>
-                                {t.name} (৳ {t.basePrice})
-                              </option>
-                            ))}
+                            {allCategories.map((cat) => {
+                              const catTiersList = tiers.filter((t) => t.category === cat);
+                              if (catTiersList.length === 0) return null;
+                              return (
+                                <optgroup key={cat} label={`── ${cat} ──`} className="text-slate-400 bg-[#02121f]">
+                                  {catTiersList.map((t) => (
+                                    <option key={t._id} value={t._id} className="text-white">
+                                      {t.name} (৳ {t.basePrice || 0})
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              );
+                            })}
                           </select>
                         </td>
                       </tr>
@@ -1229,13 +1564,35 @@ const AdminAuctionTiersView = () => {
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setActiveCategory(cat)}
-                      className="rounded bg-[#b8872f]/80 px-2.5 py-1 text-xs font-bold text-white hover:bg-[#b8872f] cursor-pointer"
-                    >
-                      Manage {cat}
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <ExportButtonGroup
+                        variant="compact"
+                        align="right"
+                        label="Export"
+                        pdfLabel={`Download ${cat} Tiers (PDF)`}
+                        excelLabel={`Download ${cat} Tiers (Excel)`}
+                        onExportPdf={() => {
+                          exportAuctionTiersToPdf(catTiers, catPlayers, {
+                            title: `${cat} - Auction Tiers & Player Pool`,
+                            filterDescription: `Category: ${cat} • Total Tiers: ${catTiers.length}`,
+                            category: cat,
+                          });
+                        }}
+                        onExportExcel={() => {
+                          exportAuctionTiersToExcel(catTiers, catPlayers, {
+                            category: cat,
+                            fileName: `EPL_2027_Auction_Tiers_${cat.replace(/[^a-zA-Z0-9_-]/g, "_")}_${getFormattedDate().fileSuffix}.xlsx`,
+                          });
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setActiveCategory(cat)}
+                        className="rounded bg-[#b8872f]/80 px-2.5 py-1 text-xs font-bold text-white hover:bg-[#b8872f] cursor-pointer"
+                      >
+                        Manage {cat}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mt-3 space-y-2">
@@ -1299,7 +1656,17 @@ const AdminAuctionTiersView = () => {
           onClose={() => setActiveTierForAdd(null)}
           tier={activeTierForAdd}
           availablePlayers={players}
+          allCategories={allCategories}
           onAssign={handleAssignPlayers}
+        />
+      )}
+
+      {/* EDIT PLAYER BASE PRICE MODAL */}
+      {editingPlayerPrice && (
+        <EditPlayerPriceModal
+          data={editingPlayerPrice}
+          onClose={() => setEditingPlayerPrice(null)}
+          onSave={handleUpdatePlayerPrice}
         />
       )}
     </div>

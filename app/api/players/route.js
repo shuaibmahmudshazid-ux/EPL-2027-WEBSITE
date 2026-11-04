@@ -19,7 +19,7 @@ export const GET = async () => {
   if (!adminSession) {
     // Public visitor: return players with showcase fields only (excluding sensitive contact/payment info)
     const players = await Player.find({ status: { $ne: "rejected" } })
-      .select("fullName categories session photoUrl tier auctionTier status")
+      .select("fullName categories session photoUrl tier auctionTier status playingRole isIcon")
       .populate("auctionTier", "name category")
       .collation({ locale: "en", strength: 2 })
       .sort({ session: 1, fullName: 1 })
@@ -68,7 +68,7 @@ export const POST = async (request) => {
 
       if (!fullName || !phone || !playerId || !session || !categories?.length) {
         return Response.json(
-          { error: "Full name, phone, student ID, session, and categories are required." },
+          { error: "Full name, phone, student ID, session, and category are required." },
           { status: 400 }
         );
       }
@@ -80,6 +80,9 @@ export const POST = async (request) => {
         return Response.json({ error: "This Student ID is already registered." }, { status: 409 });
       }
 
+      const rawCategories = Array.isArray(categories) ? categories.filter(Boolean) : [categories].filter(Boolean);
+      const singleCategories = rawCategories.length > 0 ? [rawCategories[0]] : ["Batsman"];
+
       const player = await Player.create({
         fullName: fullName.trim(),
         phone: phone.trim(),
@@ -87,7 +90,7 @@ export const POST = async (request) => {
         registrationNumber: registrationNumber ? registrationNumber.trim() : undefined,
         email: email ? email.trim().toLowerCase() : undefined,
         session,
-        categories,
+        categories: singleCategories,
         photoUrl: photoUrl || null,
         status: "approved",
         basePrice: Number(basePrice) || 0,
@@ -100,6 +103,9 @@ export const POST = async (request) => {
           player.auctionTier = tier._id;
           player.tier = tier.name;
           player.basePrice = tier.basePrice;
+          if (tier.category) {
+            player.categories = [tier.category];
+          }
         }
       }
 
@@ -131,7 +137,8 @@ export const POST = async (request) => {
       formData.get("registrationNumber")?.trim();
     const email = formData.get("email")?.trim().toLowerCase();
     const session = formData.get("session");
-    const categories = formData.getAll("categories[]");
+    const rawCategories = formData.getAll("categories[]");
+    const categories = rawCategories.length > 0 ? [rawCategories[0]] : [];
     const photo = formData.get("photo");
 
     // Required fields check

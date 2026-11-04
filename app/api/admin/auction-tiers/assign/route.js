@@ -43,20 +43,27 @@ export const POST = async (request) => {
         );
       }
 
+      const updateData = {
+        $set: {
+          auctionTier: tier._id,
+          tier: tier.name,
+          basePrice: Number(tier.basePrice) || 0,
+        },
+      };
+
+      if (tier.category) {
+        // Enforce strictly one category per player matching the assigned tier
+        updateData.$set.categories = [tier.category];
+      }
+
       const result = await Player.updateMany(
         { _id: { $in: playerIds } },
-        {
-          $set: {
-            auctionTier: tier._id,
-            tier: tier.name,
-            basePrice: tier.basePrice,
-          },
-        }
+        updateData
       );
 
       return Response.json({
         success: true,
-        message: `Assigned ${result.modifiedCount} player(s) to ${tier.name}.`,
+        message: `Moved ${result.modifiedCount} player(s) to ${tier.category} - ${tier.name} (৳ ${Number(tier.basePrice || 0).toLocaleString()}).`,
         modifiedCount: result.modifiedCount,
       });
     }

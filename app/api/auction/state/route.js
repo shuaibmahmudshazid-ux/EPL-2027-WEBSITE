@@ -16,12 +16,8 @@ export const GET = async () => {
       auctionCode: "LIVE",
       status: "idle",
       hammerStatus: "waiting",
-      onlineBiddingEnabled: true,
     });
     state = state.toObject();
-  }
-  if (state.onlineBiddingEnabled === undefined) {
-    state.onlineBiddingEnabled = true;
   }
 
   // Fetch all active teams with populated player summaries
@@ -38,7 +34,8 @@ export const GET = async () => {
       (sum, p) => sum + (Number(p.soldPrice) || 0),
       0
     );
-    const pointsRemaining = Math.max(0, DEFAULT_TEAM_POINTS - pointsSpent);
+    const totalPoints = typeof team.points === "number" ? team.points : DEFAULT_TEAM_POINTS;
+    const pointsRemaining = Math.max(0, totalPoints - pointsSpent);
 
     const acquiredInTier = tierSoldPlayers.find(
       (p) => p.soldToTeam?.toString() === team._id?.toString()
@@ -54,7 +51,7 @@ export const GET = async () => {
       players: team.players || [],
       pointsSpent,
       pointsRemaining,
-      totalPoints: DEFAULT_TEAM_POINTS,
+      totalPoints,
       hasWonInCurrentTier: Boolean(acquiredInTier),
       wonPlayerInCurrentTier: acquiredInTier
         ? {
@@ -94,22 +91,12 @@ export const GET = async () => {
   };
 
   // Calculate next bid for current player
-  let currentBase = state.tierBasePrice || 500;
-  const currP = state.players?.[state.currentPlayerIndex];
-  if (currP && currP.basePrice > 0) {
-    currentBase = currP.basePrice;
-  }
+  const currentActivePlayer = state.players?.[state.currentPlayerIndex];
+  let currentBase = currentActivePlayer?.basePrice || state.tierBasePrice || 500;
   if (state.currentPlayerIndex === 4 && state.fifthPlayerCalculatedBasePrice) {
     currentBase = state.fifthPlayerCalculatedBasePrice;
   }
-
-  const hasLeadingBidder = Boolean(
-    state.currentBidderTeam ||
-    state.currentBidderTeamName ||
-    (Array.isArray(state.bidHistory) && state.bidHistory.length > 0)
-  );
-
-  const nextMinimumBid = hasLeadingBidder ? calculateNextBid(state.currentBid, currentBase) : currentBase;
+  const nextMinimumBid = calculateNextBid(state.currentBid, currentBase);
 
   return Response.json({
     state,

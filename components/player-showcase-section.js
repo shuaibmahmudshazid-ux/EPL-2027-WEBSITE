@@ -146,16 +146,35 @@ export default function PlayerShowcaseSection({ initiallyExpanded = false }) {
         ? data.players
         : SHOWCASE_FALLBACKS;
 
-      // Filter out any duplicates if an icon player was registered in regular players
+      // Merge DB data for icon players so their live DB properties (_id, tier, auctionStatus, team) are synced
+      const syncedIconPlayers = OFFICIAL_ICON_PLAYERS.map((icon) => {
+        const dbPlayer = fetched.find(
+          (p) =>
+            icon.fullName.toLowerCase() === (p.fullName || "").trim().toLowerCase()
+        );
+        if (dbPlayer) {
+          return {
+            ...icon,
+            ...dbPlayer,
+            isIcon: true,
+            playingRole: dbPlayer.playingRole || icon.categories?.[0] || "All-Rounder",
+          };
+        }
+        return icon;
+      });
+
+      // Filter out icon players from remaining list to prevent duplicates
       const nonIconFetched = fetched.filter(
         (p) =>
           !OFFICIAL_ICON_PLAYERS.some(
             (icon) =>
               icon.fullName.toLowerCase() === (p.fullName || "").trim().toLowerCase()
-          )
+          ) &&
+          p.tier !== "ICON PLAYER" &&
+          !(Array.isArray(p.categories) && p.categories.includes("ICON PLAYER"))
       );
 
-      setPlayers([...OFFICIAL_ICON_PLAYERS, ...nonIconFetched]);
+      setPlayers([...syncedIconPlayers, ...nonIconFetched]);
     } catch {
       setPlayers([...OFFICIAL_ICON_PLAYERS, ...SHOWCASE_FALLBACKS]);
     } finally {
@@ -205,7 +224,8 @@ export default function PlayerShowcaseSection({ initiallyExpanded = false }) {
       // Category
       if (selectedCategory !== "All Roles") {
         const catStr = (
-          Array.isArray(p.categories) ? p.categories.join(" ") : p.categories || ""
+          (p.playingRole ? p.playingRole + " " : "") +
+          (Array.isArray(p.categories) ? p.categories.join(" ") : p.categories || "")
         ).toLowerCase();
         if (selectedCategory === "Batsman" && !catStr.includes("bat")) return false;
         if (selectedCategory === "Bowler" && !catStr.includes("bowl")) return false;

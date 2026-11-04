@@ -26,7 +26,7 @@ const teamSchema = new mongoose.Schema(
     logoUrl: { type: String, default: null },
     players: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
     status: { type: String, enum: ["active", "inactive"], default: "active" },
-    points: { type: Number, default: 50000 },
+    points: { type: Number, default: 10000 },
     pointsSpent: { type: Number, default: 0 },
   },
   { timestamps: true },

@@ -15,7 +15,9 @@ import {
   FaXmark,
   FaIdCard,
   FaCheck,
+  FaCrop,
 } from "react-icons/fa6";
+import ImageCropperModal from "./image-cropper-modal";
 
 const sessions = [
   "2020-2021",
@@ -70,6 +72,7 @@ export default function PlayerRegistrationForm() {
   const [status, setStatus] = useState("idle");
   const [photoPreview, setPhotoPreview] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
+  const [showCropper, setShowCropper] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [idStatus, setIdStatus] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -275,6 +278,24 @@ export default function PlayerRegistrationForm() {
                   src={photoPreview}
                   alt="Selected player"
                 />
+
+                {/* Crop & Adjust Button */}
+                <div className="absolute top-2 left-2 z-10">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowCropper(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-black text-slate-950 shadow-lg hover:bg-yellow-400 transition-all cursor-pointer hover:scale-105"
+                    title="Crop & adjust passport photo"
+                  >
+                    <FaCrop className="text-[11px]" />
+                    <span>Crop / Adjust</span>
+                  </button>
+                </div>
+
                 <button
                   type="button"
                   onClick={(e) => {
@@ -290,7 +311,7 @@ export default function PlayerRegistrationForm() {
                   <FaXmark className="text-xs" />
                 </button>
                 <div className="absolute inset-x-0 bottom-0 bg-black/75 p-2 text-center text-[10px] font-semibold text-white pointer-events-none">
-                  Click or drop to change photo
+                  Click or drop to change photo • Use Crop / Adjust to frame face
                 </div>
               </div>
             ) : (
@@ -455,6 +476,28 @@ export default function PlayerRegistrationForm() {
         <FaImage className="text-amber-400" />
         <span>Your data is securely stored for the official EPL 2027 mega auction event.</span>
       </p>
+
+      {showCropper && (
+        <ImageCropperModal
+          isOpen={showCropper}
+          title="Crop Player Passport Photo"
+          initialFile={photoFile}
+          initialImageUrl={photoPreview}
+          playerName="Passport Photo"
+          onSave={({ file, dataUrl }) => {
+            setPhotoFile(file);
+            setPhotoPreview(dataUrl);
+            try {
+              const dt = new DataTransfer();
+              dt.items.add(file);
+              if (fileInputRef.current) fileInputRef.current.files = dt.files;
+            } catch {
+              // handled via photoFile
+            }
+          }}
+          onClose={() => setShowCropper(false)}
+        />
+      )}
     </form>
   );
 }

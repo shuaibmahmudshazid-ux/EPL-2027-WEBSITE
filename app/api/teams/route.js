@@ -158,7 +158,7 @@ export const POST = async (request) => {
       managers: cleanManagers,
       logoUrl: logoUrl || null,
       status: "active",
-      points: 50000,
+      points: 10000,
     });
 
     if (claimedKey) {

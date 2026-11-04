@@ -9,7 +9,6 @@ import {
   FaExpand,
   FaGavel,
   FaShieldHalved,
-  FaStopwatch,
   FaTrophy,
   FaVolumeHigh,
   FaVolumeXmark,
@@ -600,11 +599,6 @@ export default function StageProjectorView() {
                           {state.hammerStatus?.replace("_", " ")}
                         </span>
                       </div>
-
-                      <p className="mt-2 text-xs font-mono text-slate-300 flex items-center justify-center gap-1.5">
-                        <FaStopwatch />
-                        Timer: <b className="text-white">{state.timerSeconds || 15}s</b>
-                      </p>
                     </div>
                   </div>
                 )}

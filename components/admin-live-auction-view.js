@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   FaCheck,
+  FaCoins,
   FaForward,
-  FaBackward,
   FaGavel,
   FaLayerGroup,
   FaPause,
@@ -18,14 +18,10 @@ import {
   FaXmark,
   FaCompress,
   FaExpand,
-  FaMagnifyingGlass,
-  FaBolt,
-  FaArrowRotateLeft,
-  FaToggleOn,
-  FaToggleOff,
-  FaPenToSquare,
 } from "react-icons/fa6";
 import PlayerStageRevealCard from "./player-stage-reveal-card";
+import AdjustCoinsModal from "./admin-adjust-coins-modal";
+import { getBidIncrement } from "../lib/auctionRules";
 
 const safeParse = async (response) => {
   try {
@@ -37,8 +33,10 @@ const safeParse = async (response) => {
 };
 
 const hammerColors = {
-  waiting: "bg-white/10 text-[#9faab2] border-white/20",
-  bidding_open: "bg-emerald-950/80 text-emerald-300 border-emerald-500/50 animate-pulse",
+  waiting: "bg-white/10 text-[#9faab2]",
+  bidding_open: "bg-[#76511d] text-[#f2d590] border-amber-500/50 animate-pulse",
+  going_once: "bg-[#b8872f] text-white border-amber-400 font-bold animate-pulse",
+  going_twice: "bg-[#c0392b] text-white border-red-400 font-bold animate-pulse",
   sold: "bg-[#27ae60] text-white border-emerald-400 font-bold",
   unsold: "bg-[#7f1d1d] text-[#ff9d9d] border-red-500",
 };
@@ -52,23 +50,21 @@ const AdminLiveAuctionView = () => {
   const [actionMessage, setActionMessage] = useState("");
   const [submittingAction, setSubmittingAction] = useState(false);
 
-  // Player search & selection state
-  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
-  const [playerFilterTab, setPlayerFilterTab] = useState("available"); // available | unsold | all | by_tier
-  const [selectedTierFilter, setSelectedTierFilter] = useState("ALL");
+  // Setup Tier Modal state
+  const [selectedTierId, setSelectedTierId] = useState("");
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [customPlayersQueue, setCustomPlayersQueue] = useState([]);
 
-  // Admin Bidding Controller state (PERSISTENT selected team)
-  const [selectedBidTeamId, setSelectedBidTeamId] = useState("");
-  const [customBidInput, setCustomBidInput] = useState("");
-  const [showCustomBidInput, setShowCustomBidInput] = useState(false);
-  const [showBasePriceEdit, setShowBasePriceEdit] = useState(false);
-  const [editBasePriceVal, setEditBasePriceVal] = useState("");
-
-  // Modals & previews
+  // Stop & Reset Modals state
   const [showStopModal, setShowStopModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showStagePreview, setShowStagePreview] = useState(false);
-  const [showTierBatchModal, setShowTierBatchModal] = useState(false);
+
+  // Manual bid trigger state
+  const [manualBidTeamId, setManualBidTeamId] = useState("");
+
+  // Manage Team Coins Modal state
+  const [coinModalTeam, setCoinModalTeam] = useState(null);
 
   // Fullscreen support (with F key shortcut)
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -117,7 +113,7 @@ const AdminLiveAuctionView = () => {
 
   const pollRef = useRef(null);
 
-  // Fetch auction state
+  // Load initial data and live auction state
   const fetchAuctionState = async () => {
     try {
       const res = await fetch("/api/auction/state", { cache: "no-store" });
@@ -164,22 +160,9 @@ const AdminLiveAuctionView = () => {
     };
   }, []);
 
-  const state = auctionData?.state || {};
-  const teams = auctionData?.teams || [];
-  const currentQueue = state.players || [];
-  const currentPlayer = currentQueue[state.currentPlayerIndex] || null;
-  const isFifthPlayer = state.currentPlayerIndex === 4;
-
-  const currentBasePrice = isFifthPlayer && state.fifthPlayerCalculatedBasePrice
-    ? state.fifthPlayerCalculatedBasePrice
-    : currentPlayer?.basePrice || state.tierBasePrice || 500;
-
-  const nextMinimumBid = auctionData?.nextMinimumBid || (currentBasePrice || 500);
-  const activeSelectedTeamId = selectedBidTeamId || teams[0]?._id || "";
-
   const showFeedback = (msg) => {
     setActionMessage(msg);
-    setTimeout(() => setActionMessage(""), 4500);
+    setTimeout(() => setActionMessage(""), 4000);
   };
 
   // Dispatch control actions
@@ -199,14 +182,8 @@ const AdminLiveAuctionView = () => {
         throw new Error(result.error || `Failed to perform action: ${action}`);
       }
 
-      showFeedback(result.message || `Action executed.`);
+      showFeedback(result.message || `Action ${action} executed.`);
       await fetchAuctionState();
-      fetch("/api/players", { cache: "no-store" })
-        .then(safeParse)
-        .then((data) => {
-          if (data?.players) setAllPlayers(data.players);
-        })
-        .catch(() => {});
     } catch (err) {
       setError(err.message || "Auction control failed.");
     } finally {
@@ -214,154 +191,98 @@ const AdminLiveAuctionView = () => {
     }
   };
 
-  // 1-Click Put Player on Stage
-  const handleSelectPlayerForAuction = async (player) => {
-    if (!player) return;
-    await sendControlAction("SELECT_PLAYER", {
-      playerId: player._id,
-      customBasePrice: player.basePrice || 500,
-    });
-  };
-
-  // ========================================================
-  // 1. START BIDDING
-  // ========================================================
-  const handleStartBid = async () => {
-    await sendControlAction("START_BID", {
-      timerSeconds: 20,
-    });
-  };
-
-  // ========================================================
-  // 2. BIDDING (PLACE NEXT BID)
-  // ========================================================
-  const handleAdminSetBid = async (amountToSet) => {
-    const teamToUse = activeSelectedTeamId;
-    if (!teamToUse) {
-      setError("Please add or select a Team first.");
+  // Place manual bid on behalf of a team
+  const placeManualBid = async () => {
+    if (!manualBidTeamId) return;
+    const selectedTeam = teams.find((t) => t._id === manualBidTeamId);
+    if (selectedTeam?.hasWonInCurrentTier) {
+      setError(
+        `Tier Quota Reached: ${selectedTeam.name} already acquired ${selectedTeam.wonPlayerInCurrentTier?.fullName || "a player"} in this tier (${state.tierName || "Current Tier"}). You cannot place a bid for them until the next tier starts.`
+      );
       return;
     }
-    const finalAmount = Number(amountToSet);
-    if (!finalAmount || finalAmount <= 0) {
-      setError("Please enter a valid bid amount.");
-      return;
-    }
+    try {
+      setSubmittingAction(true);
+      const res = await fetch("/api/auction/bid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId: manualBidTeamId }),
+      });
 
-    await sendControlAction("SET_BID", {
-      teamId: teamToUse,
-      amount: finalAmount,
-    });
-    setCustomBidInput("");
-    setShowCustomBidInput(false);
-  };
-
-  const handleQuickIncrement = async (step) => {
-    const teamToUse = activeSelectedTeamId;
-    if (!teamToUse) {
-      setError("Please select a Team first.");
-      return;
-    }
-    const curr = state.currentBid > 0 ? state.currentBid : (currentBasePrice || 500);
-    const nextAmount = curr + step;
-    await handleAdminSetBid(nextAmount);
-  };
-
-  // ========================================================
-  // 3. SOLD (ADMIN CLICKS SOLD)
-  // ========================================================
-  const handleAdminSold = async () => {
-    const teamToAward = state.currentBidderTeam || activeSelectedTeamId;
-    const priceToAward = state.currentBid > 0 ? state.currentBid : (currentBasePrice || 500);
-
-    if (!teamToAward) {
-      setError("Please select a team to declare Sold.");
-      return;
-    }
-
-    await sendControlAction("HAMMER_SOLD", {
-      teamId: teamToAward,
-      soldPrice: priceToAward,
-    });
-  };
-
-  // Update base price
-  const handleSaveBasePrice = async () => {
-    const val = Number(editBasePriceVal);
-    if (isNaN(val) || val < 0) {
-      setError("Please enter a valid base price.");
-      return;
-    }
-    await sendControlAction("UPDATE_BASE_PRICE", { customBasePrice: val });
-    setShowBasePriceEdit(false);
-  };
-
-  // Filtered players list for the Quick Player Chooser
-  const filteredPlayers = useMemo(() => {
-    const q = playerSearchQuery.trim().toLowerCase();
-    return allPlayers.filter((p) => {
-      if (p.status !== "approved") return false;
-
-      if (playerFilterTab === "available") {
-        if (p.auctionStatus === "sold") return false;
-      } else if (playerFilterTab === "unsold") {
-        if (p.auctionStatus !== "unsold") return false;
+      const result = await safeParse(res);
+      if (!res.ok) {
+        throw new Error(result.error || "Failed to place bid.");
       }
 
-      if (selectedTierFilter !== "ALL") {
-        const matchesTier =
-          p.tier === selectedTierFilter ||
-          p.auctionTier?.name === selectedTierFilter ||
-          (p.categories || []).includes(selectedTierFilter);
-        if (!matchesTier) return false;
-      }
+      showFeedback(result.message || "Bid placed successfully!");
+      setManualBidTeamId("");
+      await fetchAuctionState();
+    } catch (err) {
+      setError(err.message || "Failed to place bid.");
+    } finally {
+      setSubmittingAction(false);
+    }
+  };
 
-      if (q) {
-        const nameMatch = (p.fullName || "").toLowerCase().includes(q);
-        const idMatch = (p.playerId || "").toLowerCase().includes(q);
-        const regMatch = (p.registrationNumber || "").toLowerCase().includes(q);
-        const catMatch = (p.categories || []).some((c) => c.toLowerCase().includes(q));
-        const sessionMatch = (p.session || "").toLowerCase().includes(q);
-        return nameMatch || idMatch || regMatch || catMatch || sessionMatch;
-      }
+  // Open Start Tier Modal with preselected players
+  const handleOpenStartModal = (tierId) => {
+    setSelectedTierId(tierId);
+    const targetTier = tiers.find((t) => t._id === tierId);
+    if (!targetTier) return;
 
-      return true;
+    // Pick players assigned to this tier, or in category
+    const tierCategoryPlayers = allPlayers.filter(
+      (p) =>
+        p.auctionTier?._id === tierId ||
+        p.tier === targetTier.name ||
+        (p.categories || []).includes(targetTier.category)
+    );
+
+    // Limit to 5 players
+    setCustomPlayersQueue(tierCategoryPlayers.slice(0, 5).map((p) => p._id));
+    setShowStartModal(true);
+  };
+
+  const handleConfirmStartTier = async () => {
+    if (!selectedTierId) return;
+    await sendControlAction("START_TIER", {
+      tierId: selectedTierId,
+      selectedPlayerIds: customPlayersQueue,
     });
-  }, [allPlayers, playerSearchQuery, playerFilterTab, selectedTierFilter]);
+    setShowStartModal(false);
+  };
 
-  const categoryTierOptions = useMemo(() => {
-    const set = new Set();
-    tiers.forEach((t) => {
-      if (t.name) set.add(t.name);
-      if (t.category) set.add(t.category);
-    });
-    return Array.from(set);
-  }, [tiers]);
+  const state = auctionData?.state || {};
+  const teams = auctionData?.teams || [];
+  const currentQueue = state.players || [];
+  const currentPlayer = currentQueue[state.currentPlayerIndex] || null;
+  const isFifthPlayer = state.currentPlayerIndex === 4;
+
+  const currentBasePrice = isFifthPlayer && state.fifthPlayerCalculatedBasePrice
+    ? state.fifthPlayerCalculatedBasePrice
+    : currentPlayer?.basePrice || state.tierBasePrice || 500;
 
   return (
     <div className="space-y-4 text-white">
-      {/* ======================================================== */}
-      {/* 1. TOP STATUS BAR & SESSION CONTROLS                     */}
-      {/* ======================================================== */}
-      <section className="rounded-2xl border border-[#aeac78]/30 bg-gradient-to-br from-[#2a2422]/95 via-[#1e1918]/95 to-[#161211]/95 p-4 sm:p-5 shadow-xl backdrop-blur-xl text-[#fcf0da]">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
-          <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-[#f2c46a] to-[#c89632] text-lg text-[#161211] shadow-md">
+      {/* HEADER SECTION */}
+      <section className="rounded-2xl border border-[#aeac78]/30 bg-gradient-to-br from-[#383230]/95 to-[#241f1e]/95 p-5 sm:p-6 shadow-xl backdrop-blur-xl text-[#fcf0da]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#aeac78]/20 pb-3">
+          <div className="flex items-center gap-2.5">
+            <i className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-[#f2c46a] to-[#c89632] text-lg text-[#221d1c]">
               <FaGavel />
-            </div>
+            </i>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-black tracking-wide text-white uppercase">
-                  AUCTION ADMIN CONSOLE
-                </h2>
+              <h2 className="text-lg font-black tracking-wide text-[#fcf0da] flex items-center gap-2">
+                AUCTIONEER LIVE CONSOLE
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase border ${
+                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase border ${
                     state.status === "in_progress"
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 animate-pulse"
+                      ? "bg-[#aeac78]/25 text-[#fcf0da] border-[#aeac78]/50"
                       : state.status === "paused"
-                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse"
+                      ? "bg-[#f2c46a]/20 text-[#f2c46a] border-[#f2c46a]/50 animate-pulse"
                       : state.status === "completed"
-                      ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
-                      : "bg-white/10 text-slate-300 border-white/15"
+                      ? "bg-[#aeac78]/20 text-[#aeac78] border-[#aeac78]/40"
+                      : "bg-white/10 text-[#aeac78] border-white/15"
                   }`}
                 >
                   {state.status === "in_progress"
@@ -370,54 +291,25 @@ const AdminLiveAuctionView = () => {
                     ? "⏸ PAUSED"
                     : state.status === "completed"
                     ? "✓ COMPLETED"
-                    : "STANDBY / IDLE"}
+                    : state.status || "IDLE"}
                 </span>
-
-                {/* ONLINE BIDDING TOGGLE */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    sendControlAction("TOGGLE_ONLINE_BIDDING", {
-                      enabled: !state.onlineBiddingEnabled,
-                    })
-                  }
-                  disabled={submittingAction}
-                  className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-extrabold uppercase transition-all cursor-pointer ${
-                    state.onlineBiddingEnabled !== false
-                      ? "border-emerald-500/60 bg-emerald-950/80 text-emerald-300 hover:bg-emerald-900"
-                      : "border-amber-500/60 bg-amber-950/80 text-amber-300 hover:bg-amber-900"
-                  }`}
-                  title="Toggle team devices online bidding ON or OFF"
-                >
-                  {state.onlineBiddingEnabled !== false ? (
-                    <>
-                      <FaToggleOn className="text-emerald-400 text-xs" />
-                      <span>Online Bids: Enabled</span>
-                    </>
-                  ) : (
-                    <>
-                      <FaToggleOff className="text-amber-400 text-xs" />
-                      <span>Admin-Only Mode</span>
-                    </>
-                  )}
-                </button>
-              </div>
-              <p className="text-xs text-[#aeac78] mt-0.5">
-                Simple Flow: <b>1. Put Athlete on Stage</b> ➔ <b>2. Start Bidding</b> ➔ <b>3. Ongoing Live Auction</b> ➔ <b>4. Click SOLD!</b>
+              </h2>
+              <p className="text-xs text-[#9faab2]">
+                Real-time tournament auction controller: Progressive bid increments (+50 up to 1k, +100 up to 2k, +200 up to 3k, +250 up to 4k, +500 above 4k), 10,000 team purse, and 5th player average rule.
               </p>
             </div>
           </div>
 
-          {/* QUICK LINKS & UTILITIES */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* QUICK CONTROL BUTTONS (STOP / RESET / PAUSE / RESUME) */}
             {(state.status === "in_progress" || state.status === "paused") && (
-              <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#0d0a09] p-1">
+              <div className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#02121f] p-1">
                 {state.status === "in_progress" ? (
                   <button
                     type="button"
                     onClick={() => sendControlAction("PAUSE")}
                     disabled={submittingAction}
-                    className="flex items-center gap-1 rounded bg-amber-500/20 px-2.5 py-1 text-xs font-bold text-amber-300 hover:bg-amber-500/30 cursor-pointer"
+                    className="flex items-center gap-1 rounded bg-amber-500/20 px-2.5 py-1 text-xs font-bold text-amber-300 hover:bg-amber-500/30 cursor-pointer transition-colors"
                     title="Pause live auction"
                   >
                     <FaPause className="text-[10px]" />
@@ -428,7 +320,7 @@ const AdminLiveAuctionView = () => {
                     type="button"
                     onClick={() => sendControlAction("RESUME")}
                     disabled={submittingAction}
-                    className="flex items-center gap-1 rounded bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-500 cursor-pointer animate-pulse"
+                    className="flex items-center gap-1 rounded bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-500 cursor-pointer animate-pulse transition-colors"
                     title="Resume live auction"
                   >
                     <FaPlay className="text-[10px]" />
@@ -440,8 +332,8 @@ const AdminLiveAuctionView = () => {
                   type="button"
                   onClick={() => setShowStopModal(true)}
                   disabled={submittingAction}
-                  className="flex items-center gap-1 rounded bg-red-500/20 px-2.5 py-1 text-xs font-bold text-red-300 hover:bg-red-500/30 cursor-pointer"
-                  title="Stop session"
+                  className="flex items-center gap-1 rounded bg-red-500/20 px-2.5 py-1 text-xs font-bold text-red-300 hover:bg-red-500/30 cursor-pointer transition-colors"
+                  title="Stop live auction"
                 >
                   <FaStop className="text-[10px]" />
                   Stop
@@ -451,7 +343,7 @@ const AdminLiveAuctionView = () => {
                   type="button"
                   onClick={() => setShowResetModal(true)}
                   disabled={submittingAction}
-                  className="flex items-center gap-1 rounded bg-white/10 px-2.5 py-1 text-xs font-bold text-[#ccd4d8] hover:bg-white/20 cursor-pointer"
+                  className="flex items-center gap-1 rounded bg-white/10 px-2.5 py-1 text-xs font-bold text-[#ccd4d8] hover:bg-white/20 cursor-pointer transition-colors"
                   title="Reset auction options"
                 >
                   <FaRotateLeft className="text-[10px]" />
@@ -460,11 +352,25 @@ const AdminLiveAuctionView = () => {
               </div>
             )}
 
+            {/* IF IDLE OR COMPLETED, ALLOW FULL RESET ANYTIME */}
+            {state.status && state.status !== "idle" && state.status !== "in_progress" && state.status !== "paused" && (
+              <button
+                type="button"
+                onClick={() => setShowResetModal(true)}
+                disabled={submittingAction}
+                className="flex items-center gap-1 rounded border border-white/20 bg-white/5 px-2.5 py-1 text-xs font-bold text-[#ccd4d8] hover:bg-white/10 cursor-pointer"
+                title="Reset auction to Idle"
+              >
+                <FaRotateLeft className="text-[10px]" />
+                Reset Console
+              </button>
+            )}
+
             <a
               href="/auction"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-lg border border-[#f2c46a]/60 bg-[#f2c46a]/15 px-3 py-1.5 text-xs font-black text-[#f2c46a] hover:bg-[#f2c46a]/30 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 rounded border border-[#d4a84f]/60 bg-[#76511d]/40 px-3 py-1.5 text-xs font-bold text-[#f2d590] hover:bg-[#76511d] transition-colors"
             >
               Public Arena ↗
             </a>
@@ -472,15 +378,15 @@ const AdminLiveAuctionView = () => {
               href="/auction/stage"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-lg border border-cyan-400/60 bg-cyan-950/60 px-3 py-1.5 text-xs font-black text-cyan-300 hover:bg-cyan-900/80 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 rounded border border-cyan-400/60 bg-cyan-950/60 px-3 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-900/80 transition-colors"
               title="Open Stage Projector screen for auditorium display"
             >
-              Auditorium Screen ↗
+              Auditorium Stage ↗
             </a>
             <button
               type="button"
               onClick={toggleFullscreen}
-              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
                 isFullscreen
                   ? "border-emerald-500/70 bg-emerald-950/70 text-emerald-300 hover:bg-emerald-900/80"
                   : "border-white/20 bg-white/5 text-[#ccd4d8] hover:bg-white/10"
@@ -488,13 +394,13 @@ const AdminLiveAuctionView = () => {
               title="Toggle Fullscreen (F)"
             >
               {isFullscreen ? <FaCompress className="text-[11px]" /> : <FaExpand className="text-[11px]" />}
-              <span>{isFullscreen ? "Exit Full" : "Fullscreen"}</span>
-              <kbd className="hidden md:inline-block ml-0.5 rounded bg-black/40 px-1 text-[9px] font-mono text-[#8b979d] border border-white/10">F</kbd>
+              <span>{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
+              <kbd className="hidden md:inline-block ml-0.5 rounded bg-black/40 px-1 py-0.2 text-[9px] font-mono text-[#8b979d] border border-white/10">F</kbd>
             </button>
             <button
               type="button"
               onClick={fetchAuctionState}
-              className="grid size-8 place-items-center rounded-lg border border-white/20 text-[#f2c46a] hover:bg-white/10 cursor-pointer"
+              className="grid size-8 place-items-center rounded border border-white/20 text-[#d4a84f] hover:bg-white/10"
               title="Refresh State"
             >
               <FaRotateRight className={loading ? "animate-spin" : ""} />
@@ -502,497 +408,372 @@ const AdminLiveAuctionView = () => {
           </div>
         </div>
 
-        {/* FEEDBACK & ERROR NOTICES */}
+        {/* FEEDBACK BANNER */}
         {error && (
-          <div className="mt-3 flex items-center justify-between rounded-xl border border-red-500/50 bg-red-950/60 p-2.5 text-xs font-semibold text-red-200">
-            <span>⚠️ {error}</span>
-            <button type="button" onClick={() => setError("")} className="cursor-pointer">
+          <div className="mt-3 flex items-center justify-between rounded border border-red-500/40 bg-red-950/40 p-2 text-xs text-red-200">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError("")}>
               <FaXmark />
             </button>
           </div>
         )}
         {actionMessage && (
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-950/60 p-2.5 text-xs font-bold text-emerald-200">
-            <FaCheck className="text-emerald-400" />
+          <div className="mt-3 flex items-center gap-2 rounded border border-[#d4a84f]/40 bg-[#76511d]/40 p-2 text-xs text-[#f2d590]">
+            <FaCheck />
             <span>{actionMessage}</span>
           </div>
         )}
       </section>
 
-      {/* ======================================================== */}
-      {/* 2. ACTIVE AUCTION PODIUM (IF PLAYER ON STAGE)            */}
-      {/* ======================================================== */}
-      {currentPlayer ? (
-        <div className="grid gap-4 lg:grid-cols-12">
-          {/* MAIN AUCTIONEER DESK (8 COLS) */}
-          <div className="space-y-4 lg:col-span-8">
-            <div className="relative overflow-hidden rounded-2xl border-2 border-[#f2c46a]/60 bg-gradient-to-br from-[#1d1716] via-[#14100f] to-[#0c0909] p-5 shadow-2xl">
-              {/* Podium Header badge */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
-                <span className="flex items-center gap-2 text-xs font-black uppercase text-[#f2c46a] tracking-wider">
-                  <span className="size-2 rounded-full bg-[#f2c46a] animate-ping" />
-                  CURRENT ATHLETE UNDER THE HAMMER
-                </span>
-                <span className="rounded-full bg-black/50 border border-white/10 px-3 py-0.5 text-[11px] font-mono font-bold text-[#aeac78]">
-                  Queue #{state.currentPlayerIndex + 1} of {currentQueue.length}
-                </span>
+      {/* ACTIVE AUCTION STAGE OR SETUP PROMPT */}
+      {(state.status === "in_progress" || state.status === "paused") && currentPlayer ? (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* MAIN STAGE (LEFT 2 COLS) */}
+          <div className="space-y-4 lg:col-span-2">
+            {/* CURRENT PLAYER AUCTION CARD */}
+            <div className="relative overflow-hidden rounded-lg border border-[#d4a84f]/40 bg-[#02121f] p-5 shadow-2xl">
+              <div className="absolute right-0 top-0 rounded-bl-lg bg-[#b8872f] px-3 py-1 text-[11px] font-extrabold uppercase text-black">
+                PLAYER {state.currentPlayerIndex + 1} OF {currentQueue.length}
               </div>
 
-              {/* ATHLETE IDENTITY & CURRENT STATUS */}
+              {/* PAUSED NOTICE BANNER */}
+              {state.status === "paused" && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border-2 border-amber-500/60 bg-gradient-to-r from-amber-950/90 via-amber-900/80 to-amber-950/90 p-3.5 text-amber-200 shadow-lg animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="grid size-9 place-items-center rounded-lg bg-amber-500 text-black text-sm font-black">
+                      <FaPause />
+                    </div>
+                    <div>
+                      <p className="font-black text-sm text-white uppercase tracking-wider">
+                        AUCTION CURRENTLY PAUSED
+                      </p>
+                      <p className="text-xs text-amber-200/90">
+                        Public team bidding is suspended and the countdown timer is halted.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => sendControlAction("RESUME")}
+                      disabled={submittingAction}
+                      className="flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-1.5 text-xs font-black text-white hover:bg-emerald-500 shadow cursor-pointer"
+                    >
+                      <FaPlay />
+                      Resume Bidding
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowStopModal(true)}
+                      disabled={submittingAction}
+                      className="flex items-center gap-1.5 rounded-md bg-red-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 cursor-pointer"
+                    >
+                      <FaStop />
+                      Stop Session
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 5TH PLAYER SPECIAL RULE BANNER */}
+              {isFifthPlayer && (
+                <div className="mb-4 rounded-md border border-amber-400/60 bg-gradient-to-r from-amber-950/70 via-amber-900/40 to-amber-950/70 p-3 text-xs">
+                  <div className="flex items-center gap-2 font-bold text-amber-300">
+                    <FaCoins className="text-amber-400 text-sm" />
+                    5th Player Special Rule Triggered!
+                  </div>
+                  <p className="mt-1 text-[#ffd37f]">
+                    Base price is automatically calculated as the average of <b>Player 3</b> (৳{" "}
+                    {state.player3SoldPrice?.toLocaleString() || "Unsold"}) and <b>Player 4</b> (৳{" "}
+                    {state.player4SoldPrice?.toLocaleString() || "Unsold"}) ={" "}
+                    <b className="text-white text-sm underline decoration-amber-400 underline-offset-2">
+                      ৳ {state.fifthPlayerCalculatedBasePrice?.toLocaleString() || 500}
+                    </b>
+                  </p>
+                </div>
+              )}
+
+              {/* PLAYER PROFILE ROW */}
               <div className="flex flex-wrap items-center gap-4 border-b border-white/10 pb-4">
                 <div className="relative shrink-0">
                   {currentPlayer.photoUrl ? (
                     <img
                       src={currentPlayer.photoUrl}
                       alt={currentPlayer.fullName}
-                      className="size-20 sm:size-24 rounded-2xl border-2 border-[#f2c46a] object-cover shadow-xl"
+                      className="size-20 rounded-full border-2 border-[#d4a84f] object-cover shadow-lg"
                     />
                   ) : (
-                    <div className="grid size-20 sm:size-24 place-items-center rounded-2xl border-2 border-[#f2c46a] bg-white/10 text-2xl font-black text-[#f2c46a]">
+                    <div className="grid size-20 place-items-center rounded-full border-2 border-[#d4a84f] bg-white/10 text-xl font-bold text-[#d4a84f]">
                       {currentPlayer.fullName.slice(0, 2).toUpperCase()}
                     </div>
                   )}
+
                 </div>
 
-                <div className="flex-1 min-w-[220px]">
-                  <h3 className="text-xl sm:text-2xl font-black text-white leading-tight">
-                    {currentPlayer.fullName}
-                  </h3>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#aeac78]">
-                    <span className="rounded-md bg-[#76511d] px-2 py-0.5 font-bold text-[#f2d590]">
-                      {currentPlayer.category || state.category || "Player"}
+                <div>
+                  <h3 className="text-2xl font-black text-white">{currentPlayer.fullName}</h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#8b979d]">
+                    <span className="rounded bg-[#76511d] px-2 py-0.5 font-bold text-[#f2d590]">
+                      {state.category}
                     </span>
-                    <span className="rounded-md border border-white/20 bg-white/5 px-2 py-0.5 text-white">
-                      ID: <b>{currentPlayer.playerId}</b>
+                    <span className="rounded border border-white/20 bg-white/5 px-2 py-0.5">
+                      {state.tierName}
                     </span>
-                    <span className="rounded-md border border-white/20 bg-white/5 px-2 py-0.5">
-                      Session: <b>{currentPlayer.session}</b>
-                    </span>
+                    <span>Student ID: <b className="text-white">{currentPlayer.playerId}</b></span>
+                    <span>Session: <b className="text-white">{currentPlayer.session}</b></span>
                   </div>
-
-                  {/* BASE PRICE DISPLAY & EDIT */}
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <span className="text-xs text-slate-300 font-medium">Base Price:</span>
-                    {showBasePriceEdit ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-[#f2c46a] font-bold">৳</span>
-                        <input
-                          type="number"
-                          className="w-24 rounded border border-[#f2c46a] bg-black/60 px-2 py-0.5 text-xs text-white outline-none font-bold"
-                          value={editBasePriceVal}
-                          onChange={(e) => setEditBasePriceVal(e.target.value)}
-                          placeholder="500"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleSaveBasePrice}
-                          className="rounded bg-[#f2c46a] px-2 py-0.5 text-[11px] font-black text-black hover:brightness-110 cursor-pointer"
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowBasePriceEdit(false)}
-                          className="text-xs text-slate-400 hover:text-white cursor-pointer"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <b className="text-[#f2c46a] text-sm sm:text-base font-mono">
-                          ৳ {currentBasePrice.toLocaleString()}
-                        </b>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditBasePriceVal(currentBasePrice);
-                            setShowBasePriceEdit(true);
-                          }}
-                          className="rounded border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-[#aeac78] hover:text-white hover:bg-white/10 cursor-pointer flex items-center gap-1"
-                          title="Edit base price for this player"
-                        >
-                          <FaPenToSquare className="text-[10px]" />
-                          Edit
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <p className="mt-2 text-xs text-[#9faab2]">
+                    Base Price: <b className="text-[#d4a84f] text-sm">৳ {currentBasePrice.toLocaleString()}</b>
+                  </p>
                 </div>
               </div>
 
-              {/* LIVE BIDDING HUD (HIGHEST BID, LEADING TEAM, STATUS) */}
-              <div className="mt-4 grid gap-3 rounded-xl border border-white/10 bg-black/40 p-4 sm:grid-cols-3 text-center backdrop-blur-md">
+              {/* LIVE BIDDING STATUS BOX */}
+              <div className="mt-4 grid gap-3 rounded-lg border border-white/10 bg-[#031827] p-4 sm:grid-cols-3 text-center">
                 <div>
-                  <p className="text-[10px] font-black uppercase text-[#aeac78] tracking-wider">
-                    CURRENT HIGHEST BID
-                  </p>
-                  <p className="text-3xl sm:text-4xl font-black font-mono text-[#f2c46a] mt-0.5">
+                  <p className="text-[10px] font-bold uppercase text-[#8b979d]">Current Bid</p>
+                  <p className="text-3xl font-black text-[#d4a84f]">
                     ৳ {state.currentBid ? state.currentBid.toLocaleString() : "0"}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Next Minimum: <b>৳ {nextMinimumBid?.toLocaleString()}</b>
+                  <p className="text-[10px] text-[#7c8790]">
+                    Next increment: +৳ {getBidIncrement(state.currentBid).toLocaleString()}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-[10px] font-black uppercase text-[#aeac78] tracking-wider">
-                    LEADING BIDDER TEAM
-                  </p>
-                  <p className="text-base sm:text-lg font-black text-white truncate mt-1">
+                  <p className="text-[10px] font-bold uppercase text-[#8b979d]">Leading Bidder</p>
+                  <p className="text-lg font-bold text-white truncate">
                     {state.currentBidderTeamName || "No Bids Yet"}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    {state.currentBidderTeamName ? "Holding Top Bid" : "Awaiting Opening Bid"}
+                  <p className="text-[10px] text-[#7c8790]">
+                    {state.currentBidderTeamName ? "Highest Bid" : "Awaiting First Bid"}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-[10px] font-black uppercase text-[#aeac78] tracking-wider">
-                    AUCTION STATUS
-                  </p>
+                  <p className="text-[10px] font-bold uppercase text-[#8b979d]">Hammer Status</p>
                   <div
-                    className={`mt-1 inline-block rounded-lg border px-3 py-1 text-xs font-black uppercase tracking-wider ${
+                    className={`mt-1 inline-block rounded-md border px-3 py-1 text-xs uppercase ${
                       hammerColors[state.hammerStatus] || hammerColors.waiting
                     }`}
                   >
-                    {state.hammerStatus === "bidding_open"
-                      ? "● BIDDING IN PROGRESS"
-                      : state.hammerStatus === "sold"
-                      ? "✓ SOLD"
-                      : state.hammerStatus === "unsold"
-                      ? "✕ UNSOLD"
-                      : "WAITING TO START"}
+                    {state.hammerStatus?.replace("_", " ")}
                   </div>
-                  <p className="mt-1 text-[11px] text-[#aeac78] flex items-center justify-center gap-1 font-mono font-bold">
-                    <FaStopwatch />
-                    Clock: {state.timerSeconds || 15}s
-                  </p>
                 </div>
               </div>
 
-              {/* ======================================================== */}
-              {/* CORE SIMPLE AUCTIONEER DESK: START BIDDING -> LIVE -> SOLD */}
-              {/* ======================================================== */}
-
-              {/* STAGE 1: WAITING TO START (ADMIN CLICKS START BIDDING) */}
-              {state.hammerStatus === "waiting" && (
-                <div className="mt-5 rounded-2xl border-2 border-amber-500/50 bg-gradient-to-r from-[#2a1f1a] via-[#1a1412] to-[#2a1f1a] p-6 text-center shadow-xl">
-                  <div className="max-w-md mx-auto space-y-3">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/20 border border-amber-500/40 px-3 py-1 text-xs font-bold text-amber-300">
-                      <span className="size-2 rounded-full bg-amber-400 animate-ping" />
-                      <span>Ready on Stage</span>
+              {/* HAMMER & AUCTION CONTROL BUTTONS */}
+              {state.hammerStatus === "waiting" ? (
+                /* STAGE SPOTLIGHT REVEAL CONTROLLER (BEFORE BIDDING STARTS) */
+                <div className="mt-5 space-y-3">
+                  <div className="rounded-xl border-2 border-emerald-500/70 bg-gradient-to-r from-emerald-950/90 via-[#011a0e] to-emerald-950/90 p-4 text-center shadow-xl">
+                    <div className="flex items-center justify-center gap-2 text-sm font-black uppercase tracking-wider text-emerald-300">
+                      <span className="size-2.5 rounded-full bg-emerald-400 animate-ping" />
+                      STAGE SPOTLIGHT REVEAL ACTIVE
                     </div>
-                    <h4 className="text-lg font-black text-white uppercase">
-                      {currentPlayer.fullName} is Ready for Bidding
-                    </h4>
-                    <p className="text-xs text-[#aeac78]">
-                      Starting Base Price: <strong className="text-[#f2c46a] text-sm font-mono">৳ {currentBasePrice.toLocaleString()}</strong>
+                    <p className="mt-1 text-xs text-emerald-200">
+                      Public and auditorium screens are displaying <b>{currentPlayer.fullName}</b> with base price <b>৳ {currentBasePrice.toLocaleString()}</b>.
                     </p>
-                    <button
-                      type="button"
-                      onClick={handleStartBid}
-                      disabled={submittingAction}
-                      className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-[#f2c46a] via-[#f7d070] to-[#e0a838] py-4 text-sm font-black uppercase tracking-wider text-[#141110] hover:brightness-110 active:scale-98 transition shadow-[0_0_30px_rgba(242,196,106,0.4)] cursor-pointer"
-                    >
-                      <FaPlay className="text-xs" />
-                      <span>▶ Start Bidding (৳ {currentBasePrice.toLocaleString()})</span>
-                    </button>
-                    <div className="flex items-center justify-center gap-3 pt-2">
+                    <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
                       <button
                         type="button"
-                        onClick={() => sendControlAction("HAMMER_UNSOLD")}
+                        onClick={() => sendControlAction("OPEN_BIDDING")}
                         disabled={submittingAction}
-                        className="text-xs text-red-400 hover:text-red-300 cursor-pointer underline"
+                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-2.5 text-xs font-black uppercase text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] hover:brightness-110 active:scale-98 cursor-pointer disabled:opacity-50"
                       >
-                        Mark as Unsold Directly
+                        <FaPlay />
+                        OPEN BIDDING NOW
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowStagePreview(!showStagePreview)}
+                        className="rounded-xl border border-cyan-400/50 bg-cyan-950/50 px-3.5 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-900/60 cursor-pointer"
+                      >
+                        {showStagePreview ? "Hide Preview" : "Preview Stage Display 👁"}
                       </button>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* STAGE 2: BIDDING IS LIVE & ONGOING */}
-              {state.hammerStatus === "bidding_open" && (
-                <div className="mt-5 space-y-4">
-                  <div className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-[#132218] via-[#0d1711] to-[#080f0b] p-5 shadow-2xl">
-                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
-                      <div className="flex items-center gap-2.5">
-                        <span className="relative flex size-3">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                          <span className="relative inline-flex size-3 rounded-full bg-emerald-400" />
-                        </span>
-                        <span className="text-xs font-black uppercase text-emerald-400 tracking-wider">
-                          LIVE AUCTION IN PROGRESS • TEAMS BIDDING
-                        </span>
-                      </div>
-                      <span className="text-xs text-[#aeac78] font-mono">
-                        Next Minimum Bid: <b className="text-[#f2c46a]">৳ {nextMinimumBid.toLocaleString()}</b>
-                      </span>
-                    </div>
-
-                    {/* Spotlight leading bidder */}
-                    <div className="my-4 grid gap-3 sm:grid-cols-2 bg-black/40 rounded-xl p-4 border border-white/10">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-[#aeac78] tracking-wider block">
-                          Current Highest Bid
-                        </span>
-                        <p className="text-3xl font-black font-mono text-[#f2c46a] mt-0.5">
-                          ৳ {state.currentBid > 0 ? state.currentBid.toLocaleString() : currentBasePrice.toLocaleString()}
-                        </p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          {state.currentBid > 0 ? "Bids actively being placed by teams" : "Awaiting team opening bid at base price"}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-[#aeac78] tracking-wider block">
-                          Leading Bidder Team
-                        </span>
-                        <p className="text-lg font-black text-white mt-1 truncate">
-                          {state.currentBidderTeamName ? (
-                            <span className="flex items-center gap-2 text-emerald-300">
-                              <FaTrophy className="text-sm text-[#f2c46a]" />
-                              {state.currentBidderTeamName}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 font-medium italic">No bids placed yet</span>
-                          )}
-                        </p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          {state.currentBidderTeamName ? "Holding the winning bid" : "Open for any team to bid"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* The 2 Core Admin Decisions: 1-Click SOLD or UNSOLD */}
-                    <div className="grid gap-3 sm:grid-cols-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={handleAdminSold}
-                        disabled={submittingAction || (!state.currentBidderTeam && !activeSelectedTeamId)}
-                        className="sm:col-span-2 flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600 py-4 text-sm font-black uppercase tracking-wider text-white hover:brightness-110 active:scale-98 transition shadow-[0_0_30px_rgba(16,185,129,0.5)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                      >
-                        <FaTrophy className="text-base" />
-                        <span>
-                          {state.currentBidderTeamName
-                            ? `SOLD! 🏆 to ${state.currentBidderTeamName} (৳ ${state.currentBid.toLocaleString()})`
-                            : "SOLD! 🏆 (Awaiting First Bid)"}
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => sendControlAction("HAMMER_UNSOLD")}
-                        disabled={submittingAction}
-                        className="flex items-center justify-center gap-2 rounded-xl border border-red-500/50 bg-red-950/70 py-4 text-xs font-black uppercase text-red-200 hover:bg-red-900 active:scale-98 transition cursor-pointer"
-                      >
-                        <FaXmark className="text-sm" />
-                        <span>✕ Pass / Unsold</span>
-                      </button>
-                    </div>
-
-                    {/* Optional Admin Bid Override (For offline or paddle bids) */}
-                    <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-[#aeac78] font-bold">Admin Bid Override (Optional):</span>
-                        <select
-                          value={activeSelectedTeamId}
-                          onChange={(e) => setSelectedBidTeamId(e.target.value)}
-                          className="rounded-lg border border-white/20 bg-black/60 px-2 py-1 text-xs font-bold text-white outline-none cursor-pointer"
-                        >
-                          {teams.map((t) => (
-                            <option key={t._id} value={t._id}>
-                              {t.name} (৳ {t.pointsRemaining?.toLocaleString()} left)
-                            </option>
-                          ))}
-                        </select>
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-white/10">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {state.status === "in_progress" ? (
                         <button
                           type="button"
-                          onClick={() => handleAdminSetBid(nextMinimumBid)}
+                          onClick={() => sendControlAction("PAUSE")}
                           disabled={submittingAction}
-                          className="rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 px-2.5 py-1 text-xs font-bold text-[#f2c46a] cursor-pointer"
+                          className="flex items-center gap-1.5 rounded border border-amber-500/60 bg-amber-950/60 px-3.5 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-900/80 cursor-pointer transition-colors"
+                          title="Pause live auction"
                         >
-                          + Bid ৳ {nextMinimumBid.toLocaleString()}
+                          <FaPause className="text-[11px]" />
+                          Pause
                         </button>
-                      </div>
-                      <div className="flex items-center gap-1.5">
+                      ) : (
                         <button
                           type="button"
-                          onClick={() => handleQuickIncrement(500)}
-                          className="rounded bg-white/5 hover:bg-white/15 px-2 py-0.5 text-[10px] font-bold text-slate-300 cursor-pointer"
+                          onClick={() => sendControlAction("RESUME")}
+                          disabled={submittingAction}
+                          className="flex items-center gap-1.5 rounded border border-emerald-500/60 bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 cursor-pointer shadow animate-pulse transition-colors"
+                          title="Resume live auction"
                         >
-                          +500
+                          <FaPlay className="text-[11px]" />
+                          Resume
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickIncrement(2000)}
-                          className="rounded bg-white/5 hover:bg-white/15 px-2 py-0.5 text-[10px] font-bold text-slate-300 cursor-pointer"
-                        >
-                          +2k
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowCustomBidInput(!showCustomBidInput)}
-                          className="rounded bg-white/5 hover:bg-white/15 px-2 py-0.5 text-[10px] font-bold text-slate-400 cursor-pointer"
-                        >
-                          Custom
-                        </button>
-                      </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setShowStopModal(true)}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded border border-red-500/60 bg-red-950/60 px-3.5 py-1.5 text-xs font-bold text-red-300 hover:bg-red-900/80 cursor-pointer transition-colors"
+                        title="Stop ongoing live auction"
+                      >
+                        <FaStop className="text-[11px]" />
+                        Stop
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowResetModal(true)}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded border border-white/20 bg-white/5 px-3.5 py-1.5 text-xs font-bold text-[#ccd4d8] hover:bg-white/10 cursor-pointer transition-colors"
+                        title="Reset current player bids or entire auction"
+                      >
+                        <FaRotateLeft className="text-[11px]" />
+                        Reset...
+                      </button>
                     </div>
-                    {showCustomBidInput && (
-                      <div className="mt-2 flex items-center gap-2 justify-end">
-                        <input
-                          type="number"
-                          placeholder="Custom Amount"
-                          value={customBidInput}
-                          onChange={(e) => setCustomBidInput(e.target.value)}
-                          className="w-36 rounded-lg border border-white/20 bg-black/70 px-2 py-1 text-xs font-mono font-bold text-white outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleAdminSetBid(customBidInput)}
-                          className="rounded-lg bg-[#f2c46a] px-3 py-1 text-xs font-black text-black cursor-pointer"
-                        >
-                          Submit
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
-              {/* STAGE 3: PLAYER SOLD */}
-              {state.hammerStatus === "sold" && (
-                <div className="mt-5 rounded-2xl border-2 border-emerald-500/60 bg-gradient-to-r from-[#122818] via-[#0d1a11] to-[#122818] p-5 text-center shadow-xl">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-xs font-bold text-emerald-300 mb-2">
-                    <FaTrophy className="text-[#f2c46a]" />
-                    <span>PLAYER SOLD</span>
-                  </div>
-                  <h4 className="text-xl font-black text-white uppercase">
-                    {currentPlayer.fullName} SOLD TO {state.currentBidderTeamName || "WINNING TEAM"}!
-                  </h4>
-                  <p className="text-2xl font-black font-mono text-emerald-400 my-1">
-                    ৳ {state.currentBid?.toLocaleString()} PTS
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                    {currentQueue.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => sendControlAction("NEXT_PLAYER")}
-                        disabled={submittingAction}
-                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f2c46a] to-[#d89e30] px-6 py-2.5 text-xs font-black uppercase text-black hover:brightness-110 shadow-lg cursor-pointer"
-                      >
-                        <span>Next Player in Queue</span>
-                        <FaForward />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => sendControlAction("UNDO_PLAYER")}
-                      disabled={submittingAction}
-                      className="flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/10 cursor-pointer"
-                    >
-                      <FaArrowRotateLeft className="text-xs" />
-                      <span>Undo Sale</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* STAGE 4: PLAYER UNSOLD */}
-              {state.hammerStatus === "unsold" && (
-                <div className="mt-5 rounded-2xl border-2 border-red-500/50 bg-gradient-to-r from-[#291212] via-[#1a0a0a] to-[#291212] p-5 text-center shadow-xl">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-red-500/20 border border-red-500/40 px-3 py-1 text-xs font-bold text-red-300 mb-2">
-                    <FaXmark />
-                    <span>PLAYER PASSED / UNSOLD</span>
-                  </div>
-                  <h4 className="text-lg font-black text-white uppercase">
-                    {currentPlayer.fullName} is Marked as Unsold
-                  </h4>
-                  <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                    {currentQueue.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => sendControlAction("NEXT_PLAYER")}
-                        disabled={submittingAction}
-                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f2c46a] to-[#d89e30] px-6 py-2.5 text-xs font-black uppercase text-black hover:brightness-110 shadow-lg cursor-pointer"
-                      >
-                        <span>Next Player in Queue</span>
-                        <FaForward />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => sendControlAction("UNDO_PLAYER")}
-                      disabled={submittingAction}
-                      className="flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/10 cursor-pointer"
-                    >
-                      <FaArrowRotateLeft className="text-xs" />
-                      <span>Undo / Re-Auction</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* SECONDARY ROW (NEXT, PREV, PREVIEW) */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-4 border-t border-white/10">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => sendControlAction("RESET", { scope: "CURRENT_PLAYER" })}
-                    disabled={submittingAction}
-                    className="flex items-center gap-1 rounded-lg border border-white/20 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-white/10 cursor-pointer"
-                  >
-                    <FaRotateLeft className="text-[10px]" />
-                    Reset Current Bids
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowStagePreview(!showStagePreview)}
-                    className="rounded-lg border border-cyan-400/50 bg-cyan-950/50 px-2.5 py-1 text-xs font-bold text-cyan-300 hover:bg-cyan-900/60 cursor-pointer"
-                  >
-                    {showStagePreview ? "Hide Screen Preview" : "Auditorium Screen Preview 👁"}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {state.currentPlayerIndex > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => sendControlAction("PREV_PLAYER")}
-                      disabled={submittingAction}
-                      className="flex items-center gap-1 rounded-lg border border-white/20 bg-white/5 px-3 py-1 text-xs font-bold text-white hover:bg-white/10 cursor-pointer"
-                    >
-                      <FaBackward /> Prev
-                    </button>
-                  )}
-                  {currentQueue.length > 1 && (
                     <button
                       type="button"
                       onClick={() => sendControlAction("NEXT_PLAYER")}
-                      disabled={submittingAction}
-                      className="flex items-center gap-1.5 rounded-lg bg-[#b8872f] px-3.5 py-1 text-xs font-black text-white hover:brightness-110 cursor-pointer shadow"
+                      disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
+                      className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
                     >
-                      Next in Queue ({state.currentPlayerIndex + 1}/{currentQueue.length})
+                      NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
                       <FaForward />
                     </button>
-                  )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* ACTIVE BIDDING CONTROLS */
+                <div className="mt-5 space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => sendControlAction("HAMMER_SOLD")}
+                      disabled={submittingAction || state.currentBid <= 0 || !state.currentBidderTeam}
+                      className="sm:col-span-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 py-3.5 text-sm font-black uppercase tracking-wider text-white hover:brightness-110 disabled:opacity-40 shadow-lg cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <span>SOLD! 🏆</span>
+                      {state.currentBid > 0 && state.currentBidderTeamName && (
+                        <span className="text-xs font-normal opacity-90">
+                          (৳ {state.currentBid.toLocaleString()} to {state.currentBidderTeamName})
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sendControlAction("HAMMER_UNSOLD")}
+                      disabled={submittingAction}
+                      className="rounded-xl border border-red-500/40 bg-red-950/70 py-3.5 text-xs font-bold uppercase tracking-wider text-red-200 hover:bg-red-900/80 disabled:opacity-40 cursor-pointer"
+                    >
+                      PASS / UNSOLD ✕
+                    </button>
+                  </div>
 
-              {/* LIVE STAGE PREVIEW */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-white/10">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {state.status === "in_progress" ? (
+                        <button
+                          type="button"
+                          onClick={() => sendControlAction("PAUSE")}
+                          disabled={submittingAction}
+                          className="flex items-center gap-1.5 rounded border border-amber-500/60 bg-amber-950/60 px-3.5 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-900/80 cursor-pointer transition-colors"
+                          title="Pause live auction"
+                        >
+                          <FaPause className="text-[11px]" />
+                          Pause
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => sendControlAction("RESUME")}
+                          disabled={submittingAction}
+                          className="flex items-center gap-1.5 rounded border border-emerald-500/60 bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 cursor-pointer shadow animate-pulse transition-colors"
+                          title="Resume live auction"
+                        >
+                          <FaPlay className="text-[11px]" />
+                          Resume
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => sendControlAction("REVEAL_PLAYER")}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded border border-cyan-500/60 bg-cyan-950/60 px-3.5 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-900/80 cursor-pointer transition-colors"
+                        title="Re-show player spotlight reveal screen on public display"
+                      >
+                        📺 Re-show Reveal Screen
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowStagePreview(!showStagePreview)}
+                        className="rounded border border-white/20 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-slate-300 hover:bg-white/10 cursor-pointer"
+                      >
+                        {showStagePreview ? "Hide Preview" : "Preview Stage 👁"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowStopModal(true)}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded border border-red-500/60 bg-red-950/60 px-3.5 py-1.5 text-xs font-bold text-red-300 hover:bg-red-900/80 cursor-pointer transition-colors"
+                        title="Stop ongoing live auction"
+                      >
+                        <FaStop className="text-[11px]" />
+                        Stop
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowResetModal(true)}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded border border-white/20 bg-white/5 px-3.5 py-1.5 text-xs font-bold text-[#ccd4d8] hover:bg-white/10 cursor-pointer transition-colors"
+                        title="Reset current player bids or entire auction"
+                      >
+                        <FaRotateLeft className="text-[11px]" />
+                        Reset...
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => sendControlAction("NEXT_PLAYER")}
+                      disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
+                      className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
+                    >
+                      NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
+                      <FaForward />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* LIVE STAGE DISPLAY PREVIEW INSIDE CONSOLE */}
               {showStagePreview && (
-                <div className="mt-4 rounded-2xl border-2 border-cyan-400/40 bg-black/70 p-4 shadow-2xl">
-                  <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-3">
+                <div className="mt-4 rounded-2xl border-2 border-cyan-400/40 bg-black/60 p-4 shadow-2xl">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
                     <span className="font-mono text-xs font-bold text-cyan-300 uppercase">
-                      Auditorium Projector Display Preview (Audience View)
+                      Auditorium Stage Screen Preview (Live Audience View)
                     </span>
                     <button
                       type="button"
                       onClick={() => setShowStagePreview(false)}
                       className="text-xs text-slate-400 hover:text-white cursor-pointer"
                     >
-                      ✕ Close
+                      ✕ Close Preview
                     </button>
                   </div>
                   <PlayerStageRevealCard
@@ -1004,112 +785,178 @@ const AdminLiveAuctionView = () => {
                     totalPlayers={currentQueue.length}
                     isFifthPlayer={isFifthPlayer}
                     isProjectorMode={false}
-                    isBiddingOpen={state.hammerStatus === "bidding_open"}
+                    isBiddingOpen={["bidding_open", "going_once", "going_twice"].includes(state.hammerStatus)}
                   />
                 </div>
               )}
-            </div>
 
-            {/* QUEUE LIST IF MULTIPLE PLAYERS */}
-            {currentQueue.length > 1 && (
-              <div className="rounded-xl border border-white/15 bg-[#181413] p-4 shadow-lg">
-                <h4 className="text-xs font-black uppercase text-[#f2c46a] tracking-wider mb-2 flex items-center gap-2">
-                  <FaLayerGroup />
-                  Active Queue ({currentQueue.length} Players)
-                </h4>
-                <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1">
-                  {currentQueue.map((item, idx) => {
-                    const isCurrent = idx === state.currentPlayerIndex;
-                    return (
-                      <div
-                        key={item.player || idx}
-                        className={`flex items-center justify-between gap-3 rounded-lg border p-2 text-xs transition-all ${
-                          isCurrent
-                            ? "border-[#f2c46a] bg-[#f2c46a]/15 shadow-md"
-                            : "border-white/5 bg-[#120f0e]"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="grid size-6 place-items-center rounded bg-white/10 text-[10px] font-bold">
-                            #{idx + 1}
-                          </span>
-                          <div>
-                            <p className="font-bold text-white">{item.fullName}</p>
-                            <p className="text-[10px] text-[#aeac78]">
-                              ID: {item.playerId} • Base: ৳ {item.basePrice?.toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div>
-                          {item.status === "sold" ? (
-                            <span className="rounded bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                              SOLD: ৳ {item.soldPrice?.toLocaleString()} ({item.soldToTeamName})
-                            </span>
-                          ) : item.status === "unsold" ? (
-                            <span className="rounded bg-red-950/80 border border-red-500/40 px-2 py-0.5 text-[10px] font-bold text-red-300">
-                              UNSOLD
-                            </span>
-                          ) : isCurrent ? (
-                            <span className="rounded bg-[#76511d] px-2 py-0.5 text-[10px] font-bold text-[#f2d590] animate-pulse">
-                              ON STAGE
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-slate-500">Upcoming</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+              {/* MANUAL BID PLACER BAR (For Admin to trigger bids from console) */}
+              <div className="mt-4 rounded-md border border-white/10 bg-[#031827] p-3">
+                <p className="text-[11px] font-bold uppercase text-[#8b979d] mb-1.5">
+                  Admin Manual Bid Assist (Place bid on behalf of team in room)
+                </p>
+                <div className="flex gap-2">
+                  <select
+                    className="flex-1 rounded border border-white/20 bg-[#02121f] px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
+                    value={manualBidTeamId}
+                    onChange={(e) => setManualBidTeamId(e.target.value)}
+                  >
+                    <option value="">-- Select Team --</option>
+                    {teams.map((t) => (
+                      <option key={t._id} value={t._id} disabled={t.hasWonInCurrentTier}>
+                        {t.name} (৳ {t.pointsRemaining?.toLocaleString()} left)
+                        {t.hasWonInCurrentTier
+                          ? ` — 🔒 Quota Met (${t.wonPlayerInCurrentTier?.fullName || "Player Won"})`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={placeManualBid}
+                    disabled={!manualBidTeamId || submittingAction}
+                    className="flex items-center gap-1.5 rounded bg-[#76511d] px-4 py-1.5 text-xs font-bold text-[#f2d590] hover:bg-[#b8872f] hover:text-white disabled:opacity-40 cursor-pointer"
+                  >
+                    <FaCoins />
+                    Trigger Next Bid (৳ {auctionData?.nextMinimumBid?.toLocaleString() || "—"})
+                  </button>
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* 5-PLAYER QUEUE LIST */}
+            <div className="rounded-lg border border-white/15 bg-[#031827] p-4">
+              <h4 className="text-xs font-bold uppercase text-[#d4a84f] tracking-wider mb-2 flex items-center gap-2">
+                <FaLayerGroup />
+                {state.tierName} Queue ({currentQueue.length} Players)
+              </h4>
+              <div className="space-y-1.5">
+                {currentQueue.map((item, idx) => {
+                  const isCurrent = idx === state.currentPlayerIndex;
+                  return (
+                    <div
+                      key={item.player || idx}
+                      className={`flex items-center justify-between gap-3 rounded border p-2 text-xs transition-all ${
+                        isCurrent
+                          ? "border-[#d4a84f] bg-[#d4a84f]/15"
+                          : "border-white/5 bg-[#02121f]/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="grid size-6 place-items-center rounded bg-white/10 text-[10px] font-bold">
+                          #{idx + 1}
+                        </span>
+                        <div className="relative shrink-0">
+                          {item.photoUrl ? (
+                            <img
+                              src={item.photoUrl}
+                              alt={item.fullName}
+                              className="size-7 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="grid size-7 place-items-center rounded-full bg-white/10 text-[9px] font-bold">
+                              {item.fullName.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-bold text-white flex items-center gap-1.5">
+                            {item.fullName}
+                            {idx === 4 && (
+                              <span className="rounded bg-amber-400/20 px-1 py-0.2 text-[9px] font-bold text-amber-300">
+                                5th (Avg P3 &amp; P4)
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-[#8b979d]">
+                            ID: {item.playerId} • Base: ৳ {item.basePrice?.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        {item.status === "sold" ? (
+                          <span className="rounded bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                            SOLD: ৳ {item.soldPrice?.toLocaleString()} ({item.soldToTeamName})
+                          </span>
+                        ) : item.status === "unsold" ? (
+                          <span className="rounded bg-red-950/80 border border-red-500/40 px-2 py-0.5 text-[10px] font-bold text-red-300">
+                            UNSOLD
+                          </span>
+                        ) : isCurrent ? (
+                          <span className="rounded bg-[#76511d] px-2 py-0.5 text-[10px] font-bold text-[#f2d590] animate-pulse">
+                            BIDDING NOW
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-[#7c8790]">Upcoming</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* RIGHT SIDEBAR: TEAMS PURSE & BID LOG (4 COLS) */}
-          <div className="space-y-4 lg:col-span-4">
-            {/* TEAMS PURSE & SQUADS */}
-            <div className="rounded-2xl border border-white/15 bg-[#181413] p-4 shadow-xl">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
-                <h4 className="text-xs font-black uppercase text-[#f2c46a] tracking-wider flex items-center gap-1.5">
+          {/* RIGHT COLUMN: TEAMS LEADERBOARD & PURSES */}
+          <div className="space-y-4">
+            <div className="rounded-lg border border-white/15 bg-[#031827] p-4 shadow-lg">
+              <h4 className="text-xs font-bold uppercase text-[#d4a84f] tracking-wider mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
                   <FaUsers />
-                  Participating Teams ({teams.length})
-                </h4>
-                <span className="text-[10px] text-[#aeac78]">Max 50,000 pts</span>
-              </div>
+                  Teams Purse Status
+                </span>
+                <span className="text-[10px] text-[#8b979d]">Max 10,000 pts</span>
+              </h4>
 
-              <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
                 {teams.map((team) => {
-                  const percentLeft = Math.round((team.pointsRemaining / 50000) * 100);
+                  const percentLeft = Math.round((team.pointsRemaining / 10000) * 100);
                   const isLeading = state.currentBidderTeam?.toString() === team._id.toString();
-                  const isSelected = activeSelectedTeamId === team._id;
 
                   return (
                     <div
                       key={team._id}
-                      onClick={() => setSelectedBidTeamId(team._id)}
-                      className={`rounded-xl border p-2.5 transition-all text-xs cursor-pointer ${
-                        isSelected
-                          ? "border-[#f2c46a] bg-[#f2c46a]/20 shadow-lg scale-[1.01]"
-                          : isLeading
-                          ? "border-amber-500/50 bg-amber-500/10"
-                          : "border-white/10 bg-[#120f0e] hover:border-white/30"
+                      className={`rounded border p-2.5 transition-all text-xs ${
+                        isLeading
+                          ? "border-[#d4a84f] bg-[#d4a84f]/15"
+                          : "border-white/10 bg-[#02121f]"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-white flex items-center gap-1.5">
+                        <span className="font-bold text-white flex items-center gap-1.5 flex-wrap">
                           {team.name}
                           {isLeading && (
-                            <span className="rounded bg-[#b8872f] px-1.5 py-0.2 text-[9px] text-black font-black">
+                            <span className="rounded bg-[#b8872f] px-1.5 py-0.2 text-[9px] text-black font-extrabold">
                               LEAD
                             </span>
                           )}
+                          {team.hasWonInCurrentTier && (
+                            <span
+                              className="rounded bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.2 text-[8px] text-amber-300 font-bold"
+                              title={`Acquired ${team.wonPlayerInCurrentTier?.fullName || "player"} in this tier`}
+                            >
+                              🔒 TIER QUOTA
+                            </span>
+                          )}
                         </span>
-                        <span className="font-mono font-bold text-[#f2c46a]">
-                          ৳ {team.pointsRemaining?.toLocaleString()}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-[#d4a84f]">
+                            ৳ {team.pointsRemaining?.toLocaleString()}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setCoinModalTeam(team)}
+                            className="rounded bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/35 px-2 py-0.5 text-[10px] font-bold text-amber-300 transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
+                            title={`Add points for ${team.name}`}
+                          >
+                            <FaCoins className="text-[9px]" />
+                            <span>+ Add Point</span>
+                          </button>
+                        </div>
                       </div>
 
+                      {/* PROGRESS BAR */}
                       <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                         <div
                           className={`h-full transition-all ${
@@ -1123,9 +970,9 @@ const AdminLiveAuctionView = () => {
                         />
                       </div>
 
-                      <div className="mt-1 flex items-center justify-between text-[10px] text-[#aeac78]">
+                      <div className="mt-1 flex items-center justify-between text-[10px] text-[#8b979d]">
                         <span>Squad: {team.playerCount} player(s)</span>
-                        <span className="text-[9px] underline">Click to select for Option 2</span>
+                        <span>Spent: ৳ {team.pointsSpent?.toLocaleString()}</span>
                       </div>
                     </div>
                   );
@@ -1133,23 +980,23 @@ const AdminLiveAuctionView = () => {
               </div>
             </div>
 
-            {/* RECENT BIDS STREAM */}
-            <div className="rounded-2xl border border-white/15 bg-[#181413] p-4 shadow-xl">
-              <h4 className="text-xs font-black uppercase text-[#f2c46a] tracking-wider mb-2 flex items-center gap-1.5">
+            {/* LIVE BID HISTORY STREAM */}
+            <div className="rounded-lg border border-white/15 bg-[#031827] p-4 shadow-lg">
+              <h4 className="text-xs font-bold uppercase text-[#d4a84f] tracking-wider mb-2 flex items-center gap-1.5">
                 <FaTrophy />
-                Live Bids Log
+                Recent Bids Log
               </h4>
               <div className="space-y-1.5 max-h-[220px] overflow-y-auto text-xs pr-1">
                 {(state.bidHistory || []).length === 0 ? (
-                  <p className="text-center py-4 text-[11px] text-slate-500 italic">No bids recorded yet</p>
+                  <p className="text-center py-4 text-[11px] text-[#7c8790]">No bids recorded yet</p>
                 ) : (
                   state.bidHistory.map((b, i) => (
                     <div
                       key={i}
-                      className="flex items-center justify-between rounded-lg bg-[#120f0e] px-2.5 py-1.5 text-[11px] border border-white/5"
+                      className="flex items-center justify-between rounded bg-[#02121f] px-2.5 py-1.5 text-[11px]"
                     >
-                      <span className="font-semibold text-white truncate max-w-[150px]">{b.teamName}</span>
-                      <span className="font-mono font-bold text-[#f2c46a]">
+                      <span className="font-semibold text-white">{b.teamName}</span>
+                      <span className="font-mono font-bold text-[#d4a84f]">
                         ৳ {b.amount?.toLocaleString()}
                       </span>
                     </div>
@@ -1159,289 +1006,163 @@ const AdminLiveAuctionView = () => {
             </div>
           </div>
         </div>
-      ) : null}
+      ) : (
+        /* AUCTION SETUP / START TIER SELECTOR */
+        <div className="rounded-lg border border-white/15 bg-[#031827] p-6 text-center space-y-4">
+          <FaGavel className="mx-auto text-4xl text-[#d4a84f]" />
+          <h3 className="text-lg font-bold text-white">Select a Category Tier to Begin Auction</h3>
+          <p className="max-w-[560px] mx-auto text-xs text-[#9faab2]">
+            Each tier consists of 5 players. Base prices are set per tier. Progressive bid increments apply: +৳50 (up to 1,000), +৳100 (up to 2,000), +৳200 (up to 3,000), +৳250 (up to 4,000), and +৳500 thereafter. The 5th player&apos;s starting price will automatically be the average of the 3rd and 4th sold players.
+          </p>
 
-      {/* ======================================================== */}
-      {/* 3. QUICK PLAYER CHOOSER (SEARCH & PUT ON STAGE)          */}
-      {/* ======================================================== */}
-      <section className="rounded-2xl border border-white/15 bg-[#181413] p-5 shadow-xl space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
-          <div>
-            <h3 className="text-base font-black text-white uppercase flex items-center gap-2">
-              <FaBolt className="text-[#f2c46a]" />
-              SELECT PLAYER FOR AUCTION
-            </h3>
-            <p className="text-xs text-[#aeac78] mt-0.5">
-              Search by name or student ID, then click <b>Put on Stage ⚡</b> to immediately launch.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowTierBatchModal(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/10 cursor-pointer"
-          >
-            <FaLayerGroup />
-            Launch Category Tier Queue...
-          </button>
-        </div>
-
-        {/* SEARCH & FILTERS */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[240px]">
-            <FaMagnifyingGlass className="absolute left-3 top-3 text-xs text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search player by name, student ID, session, category..."
-              value={playerSearchQuery}
-              onChange={(e) => setPlayerSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-white/20 bg-[#120f0e] pl-9 pr-3 py-2 text-xs text-white outline-none focus:border-[#f2c46a]"
-            />
-          </div>
-
-          <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-[#120f0e] p-1">
-            <button
-              type="button"
-              onClick={() => setPlayerFilterTab("available")}
-              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                playerFilterTab === "available"
-                  ? "bg-[#f2c46a] text-black font-black"
-                  : "text-slate-300 hover:text-white"
-              }`}
-            >
-              Available (Not Sold)
-            </button>
-            <button
-              type="button"
-              onClick={() => setPlayerFilterTab("unsold")}
-              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                playerFilterTab === "unsold"
-                  ? "bg-[#f2c46a] text-black font-black"
-                  : "text-slate-300 hover:text-white"
-              }`}
-            >
-              Passed / Unsold
-            </button>
-            <button
-              type="button"
-              onClick={() => setPlayerFilterTab("all")}
-              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                playerFilterTab === "all"
-                  ? "bg-[#f2c46a] text-black font-black"
-                  : "text-slate-300 hover:text-white"
-              }`}
-            >
-              All Approved
-            </button>
-          </div>
-
-          {categoryTierOptions.length > 0 && (
-            <select
-              value={selectedTierFilter}
-              onChange={(e) => setSelectedTierFilter(e.target.value)}
-              className="rounded-xl border border-white/20 bg-[#120f0e] px-3 py-2 text-xs font-bold text-white outline-none cursor-pointer focus:border-[#f2c46a]"
-            >
-              <option value="ALL">All Categories / Tiers</option>
-              {categoryTierOptions.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        {/* PLAYERS LIST GRID */}
-        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 max-h-[420px] overflow-y-auto pr-1">
-          {filteredPlayers.length === 0 ? (
-            <div className="col-span-full py-10 text-center text-xs text-slate-500 italic">
-              No players found matching your criteria.
-            </div>
-          ) : (
-            filteredPlayers.map((p) => {
-              const isCurrent = currentPlayer?.player?.toString() === p._id?.toString();
-              const isSold = p.auctionStatus === "sold";
-              const isUnsold = p.auctionStatus === "unsold";
-
-              return (
-                <div
-                  key={p._id}
-                  className={`flex flex-col justify-between rounded-xl border p-3 transition-all ${
-                    isCurrent
-                      ? "border-[#f2c46a] bg-[#f2c46a]/15 shadow-md"
-                      : isSold
-                      ? "border-emerald-500/20 bg-emerald-950/20 opacity-80"
-                      : "border-white/10 bg-[#120f0e] hover:border-[#f2c46a]/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="relative shrink-0">
-                      {p.photoUrl ? (
-                        <img
-                          src={p.photoUrl}
-                          alt={p.fullName}
-                          className="size-12 rounded-xl object-cover border border-white/20"
-                        />
-                      ) : (
-                        <div className="grid size-12 place-items-center rounded-xl bg-white/10 text-sm font-bold text-slate-300">
-                          {p.fullName.slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-white text-xs truncate">{p.fullName}</p>
-                      <p className="text-[10px] text-[#aeac78]">
-                        ID: {p.playerId} • {p.session}
-                      </p>
-                      <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
-                        <span className="rounded bg-white/10 px-1.5 py-0.2 text-[9px] text-slate-300">
-                          {p.categories?.[0] || p.tier || "Player"}
-                        </span>
-                        <span className="font-mono text-[10px] text-[#f2c46a] font-bold">
-                          ৳ {(p.basePrice || 500).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between pt-2 border-t border-white/10">
-                    <div>
-                      {isSold ? (
-                        <span className="text-[10px] font-bold text-emerald-400">
-                          SOLD: ৳ {p.soldPrice?.toLocaleString()} ({p.team?.name || "Team"})
-                        </span>
-                      ) : isUnsold ? (
-                        <span className="text-[10px] font-bold text-red-400">UNSOLD</span>
-                      ) : isCurrent ? (
-                        <span className="text-[10px] font-bold text-amber-300 animate-pulse">ON STAGE</span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400">Available</span>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSelectPlayerForAuction(p)}
-                      disabled={submittingAction || isCurrent}
-                      className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-[#f2c46a] to-[#c89632] px-2.5 py-1 text-[11px] font-black uppercase text-[#141110] hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
-                    >
-                      <FaBolt />
-                      Put on Stage
-                    </button>
-                  </div>
+          <div className="max-w-[700px] mx-auto grid gap-3 sm:grid-cols-2 md:grid-cols-3 pt-3">
+            {tiers.map((t) => (
+              <div
+                key={t._id}
+                className="rounded-lg border border-white/10 bg-[#02121f] p-4 text-left hover:border-[#d4a84f] transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="rounded bg-[#76511d] px-2 py-0.5 text-[10px] font-bold text-[#f2d590]">
+                    {t.category}
+                  </span>
+                  <span className="text-xs font-bold text-white">{t.name}</span>
                 </div>
-              );
-            })
-          )}
-        </div>
-      </section>
+                <p className="mt-2 text-xs text-[#d4a84f] font-mono">
+                  Base Price: ৳ {t.basePrice?.toLocaleString()}
+                </p>
+                <p className="text-[10px] text-[#8b979d] mt-0.5">
+                  {t.playerCount || 0} players configured
+                </p>
 
-      {/* ======================================================== */}
-      {/* 4. TIER QUEUE BATCH MODAL                                */}
-      {/* ======================================================== */}
-      {showTierBatchModal && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenStartModal(t._id)}
+                  className="mt-3 w-full flex items-center justify-center gap-1.5 rounded bg-[#b8872f] py-1.5 text-xs font-bold text-white hover:brightness-110 cursor-pointer"
+                >
+                  <FaPlay className="text-[10px]" />
+                  Launch Tier Auction
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* START TIER CONFIRMATION & 5-PLAYER QUEUE MODAL */}
+      {showStartModal && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4"
-          onClick={() => setShowTierBatchModal(false)}
+          className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4"
+          onClick={() => setShowStartModal(false)}
         >
           <div
-            className="w-full max-w-[520px] rounded-2xl border border-white/15 bg-[#161211] p-5 shadow-2xl space-y-4"
+            className="w-full max-w-[560px] rounded-lg border border-white/15 bg-[#031827] p-5 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-base font-black text-white uppercase flex items-center gap-2">
-                <FaLayerGroup className="text-[#f2c46a]" />
-                Launch Category Tier Queue
+            <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <FaPlay className="text-[#d4a84f] text-xs" />
+                Configure 5-Player Auction Set
               </h3>
               <button
                 type="button"
-                onClick={() => setShowTierBatchModal(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-[#9faab2] hover:text-white"
+                onClick={() => setShowStartModal(false)}
               >
                 <FaXmark />
               </button>
             </div>
 
-            <p className="text-xs text-[#aeac78]">
-              Select an organized tier batch to start auctioning its players in sequence.
+            <p className="text-xs text-[#9faab2] mb-3">
+              The tournament rules state that each tier has 5 players auctioned sequentially.
+              The 5th player&apos;s base price will automatically be the average of Player 3 and Player 4 final bid prices.
             </p>
 
-            <div className="grid gap-2 max-h-[300px] overflow-y-auto">
-              {tiers.map((t) => (
-                <div
-                  key={t._id}
-                  className="flex items-center justify-between rounded-xl border border-white/10 bg-[#1e1918] p-3 hover:border-[#f2c46a] transition-all"
-                >
-                  <div>
-                    <span className="rounded bg-[#76511d] px-2 py-0.5 text-[10px] font-bold text-[#f2d590]">
-                      {t.category}
-                    </span>
-                    <h4 className="font-bold text-white text-xs mt-1">{t.name}</h4>
-                    <p className="text-[10px] text-[#aeac78]">
-                      Base Price: ৳ {t.basePrice?.toLocaleString()} • {t.playerCount || 0} players
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await sendControlAction("START_TIER", { tierId: t._id });
-                      setShowTierBatchModal(false);
-                    }}
-                    disabled={submittingAction}
-                    className="flex items-center gap-1.5 rounded-lg bg-[#b8872f] px-3 py-1.5 text-xs font-bold text-white hover:brightness-110 cursor-pointer shadow"
+            <div className="space-y-2 mb-4 max-h-[300px] overflow-y-auto">
+              <p className="text-[11px] font-bold uppercase text-[#d4a84f]">
+                Selected Players Queue ({customPlayersQueue.length} of 5):
+              </p>
+              {customPlayersQueue.map((pid, idx) => {
+                const player = allPlayers.find((p) => p._id === pid);
+                if (!player) return null;
+                return (
+                  <div
+                    key={pid}
+                    className="flex items-center justify-between rounded border border-white/10 bg-[#02121f] p-2 text-xs"
                   >
-                    <FaPlay className="text-[10px]" />
-                    Launch
-                  </button>
-                </div>
-              ))}
+                    <span className="flex items-center gap-2">
+                      <b className="text-[#d4a84f]">#{idx + 1}</b>
+                      {player.fullName} ({player.playerId})
+                      {idx === 4 && (
+                        <span className="rounded bg-amber-400/20 px-1 py-0.2 text-[9px] font-bold text-amber-300">
+                          5th Player (Average Rule)
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[#8b979d]">{player.session}</span>
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-white/10">
+            <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
               <button
                 type="button"
-                onClick={() => setShowTierBatchModal(false)}
-                className="rounded-xl border border-white/20 px-3.5 py-1.5 text-xs font-bold text-slate-300 hover:bg-white/10 cursor-pointer"
+                onClick={() => setShowStartModal(false)}
+                className="rounded border border-white/20 px-3 py-1.5 text-xs text-[#ccd4d8]"
               >
-                Close
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmStartTier}
+                disabled={submittingAction}
+                className="rounded bg-[#b8872f] px-4 py-1.5 text-xs font-bold text-white hover:brightness-110"
+              >
+                Start Live Auction
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* 5. STOP AUCTION MODAL                                    */}
-      {/* ======================================================== */}
+      {/* STOP AUCTION CONFIRMATION MODAL */}
       {showStopModal && (
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4"
           onClick={() => setShowStopModal(false)}
         >
           <div
-            className="w-full max-w-[440px] rounded-2xl border border-red-500/50 bg-[#161211] p-5 shadow-2xl space-y-4"
+            className="w-full max-w-[460px] rounded-lg border border-red-500/40 bg-[#031827] p-5 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-base font-black text-red-400 uppercase flex items-center gap-2">
-                <FaStop /> Stop Live Auction
+            <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-red-400 flex items-center gap-2">
+                <FaStop className="text-red-400 text-sm" />
+                Stop Live Auction
               </h3>
               <button
                 type="button"
+                className="text-[#9faab2] hover:text-white"
                 onClick={() => setShowStopModal(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
               >
                 <FaXmark />
               </button>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Are you sure you want to STOP this live auction session? Countdown timers will halt and public bidding will be closed.
+
+            <p className="text-xs text-[#ccd4d8] leading-relaxed mb-4">
+              Are you sure you want to <b>STOP</b> this live auction session
+              {state.category && state.tierName ? (
+                <> for <b className="text-white">{state.category} - {state.tierName}</b></>
+              ) : null}?
+              <br />
+              This will stop the countdown timer, close public bidding, and finalize the live tier session.
             </p>
-            <div className="flex justify-end gap-2 pt-3 border-t border-white/10">
+
+            <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
               <button
                 type="button"
                 onClick={() => setShowStopModal(false)}
-                className="rounded-xl border border-white/20 px-3.5 py-1.5 text-xs font-bold text-slate-300 hover:bg-white/10 cursor-pointer"
+                className="rounded border border-white/20 px-3 py-1.5 text-xs text-[#ccd4d8] hover:bg-white/10 cursor-pointer"
               >
                 Cancel
               </button>
@@ -1452,8 +1173,9 @@ const AdminLiveAuctionView = () => {
                   setShowStopModal(false);
                 }}
                 disabled={submittingAction}
-                className="rounded-xl bg-red-700 px-4 py-1.5 text-xs font-black uppercase text-white hover:bg-red-600 cursor-pointer shadow"
+                className="flex items-center gap-1.5 rounded bg-red-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-red-600 shadow cursor-pointer"
               >
+                <FaStop className="text-[10px]" />
                 Confirm Stop
               </button>
             </div>
@@ -1461,40 +1183,48 @@ const AdminLiveAuctionView = () => {
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* 6. RESET AUCTION MODAL                                   */}
-      {/* ======================================================== */}
+      {/* RESET AUCTION MODAL (SCOPE SELECTION) */}
       {showResetModal && (
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4"
           onClick={() => setShowResetModal(false)}
         >
           <div
-            className="w-full max-w-[480px] rounded-2xl border border-white/15 bg-[#161211] p-5 shadow-2xl space-y-4"
+            className="w-full max-w-[520px] rounded-lg border border-[#b8a18055] bg-[#031827] p-5 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-base font-black text-white uppercase flex items-center gap-2">
-                <FaRotateLeft className="text-[#f2c46a]" />
-                Reset Auction Console
+            <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <FaRotateLeft className="text-[#d4a84f] text-sm" />
+                Auction Reset Options
               </h3>
               <button
                 type="button"
+                className="text-[#9faab2] hover:text-white"
                 onClick={() => setShowResetModal(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
               >
                 <FaXmark />
               </button>
             </div>
 
-            <div className="space-y-3">
+            <p className="text-xs text-[#9faab2] mb-4">
+              Choose the reset scope depending on whether you need to fix a mistake on the current player or reset the entire auction.
+            </p>
+
+            <div className="space-y-3 mb-4">
+              {/* OPTION 1: CURRENT PLAYER RESET */}
               {currentPlayer && (
-                <div className="rounded-xl border border-amber-500/30 bg-[#1e1918] p-3 space-y-2">
-                  <h4 className="text-xs font-black text-amber-300 uppercase">
-                    Reset Current Player Only
-                  </h4>
-                  <p className="text-[11px] text-slate-400">
-                    Resets bids for {currentPlayer.fullName} back to ৳ 0. Points are refunded if marked sold.
+                <div className="rounded-lg border border-white/10 bg-[#02121f] p-3 hover:border-amber-400/50 transition-all">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="text-xs font-bold text-amber-300">
+                      Option 1: Reset Current Player Only
+                    </h4>
+                    <span className="rounded bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                      Undo Bids
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#8b979d] leading-relaxed mb-2.5">
+                    Resets {currentPlayer.fullName}&apos;s current bid back to ৳ 0 and reopens bidding. The 5-player tier sequence is preserved. If the player was already marked SOLD, the points spent are refunded to the team.
                   </p>
                   <button
                     type="button"
@@ -1502,19 +1232,27 @@ const AdminLiveAuctionView = () => {
                       await sendControlAction("RESET", { scope: "CURRENT_PLAYER" });
                       setShowResetModal(false);
                     }}
-                    className="rounded-lg bg-[#76511d] px-3 py-1.5 text-xs font-bold text-[#f2d590] hover:bg-[#b8872f] hover:text-white cursor-pointer"
+                    disabled={submittingAction}
+                    className="flex items-center gap-1.5 rounded bg-[#76511d] px-3.5 py-1.5 text-xs font-bold text-[#f2d590] hover:bg-[#b8872f] hover:text-white cursor-pointer"
                   >
-                    Reset Current Player
+                    <FaRotateLeft className="text-[10px]" />
+                    Reset Current Player (৳ 0)
                   </button>
                 </div>
               )}
 
-              <div className="rounded-xl border border-red-500/30 bg-[#1e1918] p-3 space-y-2">
-                <h4 className="text-xs font-black text-red-300 uppercase">
-                  Reset Entire Live Session to Idle
-                </h4>
-                <p className="text-[11px] text-slate-400">
-                  Clears the active stage podium and queue, returning console to Standby so you can choose any new player.
+              {/* OPTION 2: FULL RESET TO IDLE */}
+              <div className="rounded-lg border border-red-500/20 bg-[#02121f] p-3 hover:border-red-400/50 transition-all">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-xs font-bold text-red-300">
+                    Option 2: Reset Entire Live Session
+                  </h4>
+                  <span className="rounded bg-red-400/20 px-2 py-0.5 text-[10px] font-bold text-red-300">
+                    Full Clear
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#8b979d] leading-relaxed mb-2.5">
+                  Wipes the active 5-player queue, resets all live auction state, and returns the console to IDLE so you can select and launch a new tier or category.
                 </p>
                 <button
                   type="button"
@@ -1522,24 +1260,37 @@ const AdminLiveAuctionView = () => {
                     await sendControlAction("RESET", { scope: "FULL" });
                     setShowResetModal(false);
                   }}
-                  className="rounded-lg bg-red-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 cursor-pointer"
+                  disabled={submittingAction}
+                  className="flex items-center gap-1.5 rounded bg-red-800 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 cursor-pointer"
                 >
-                  Full Reset to Standby
+                  <FaRotateLeft className="text-[10px]" />
+                  Full Reset to Idle
                 </button>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-white/10">
+            <div className="flex justify-end border-t border-white/10 pt-3">
               <button
                 type="button"
                 onClick={() => setShowResetModal(false)}
-                className="rounded-xl border border-white/20 px-3.5 py-1.5 text-xs font-bold text-slate-300 hover:bg-white/10 cursor-pointer"
+                className="rounded border border-white/20 px-3 py-1.5 text-xs text-[#ccd4d8] hover:bg-white/10 cursor-pointer"
               >
                 Cancel
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* MANUALLY ADJUST COINS MODAL */}
+      {coinModalTeam && (
+        <AdjustCoinsModal
+          team={coinModalTeam}
+          onClose={() => setCoinModalTeam(null)}
+          onCoinsUpdated={() => {
+            fetchAuctionState();
+          }}
+        />
       )}
 
       {/* FLOATING QUICK FULLSCREEN BUTTON */}

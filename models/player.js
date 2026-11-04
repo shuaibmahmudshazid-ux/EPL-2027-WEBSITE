@@ -21,8 +21,13 @@ const playerSchema = new mongoose.Schema(
     categories: {
       type: [String],
       required: true,
-      validate: (value) => value.length > 0,
+      validate: {
+        validator: (value) => Array.isArray(value) && value.length === 1 && Boolean(value[0]),
+        message: "A player can have only one category.",
+      },
     },
+    playingRole: { type: String, trim: true, default: null },
+    isIcon: { type: Boolean, default: false },
     photoUrl: { type: String, default: null },
     status: {
       type: String,

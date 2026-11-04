@@ -11,8 +11,10 @@ import {
   FaRotateRight,
   FaUserMinus,
   FaUserPlus,
+  FaCoins,
 } from "react-icons/fa6";
 import ExportButtonGroup from "./export-button-group";
+import AdjustCoinsModal from "./admin-adjust-coins-modal";
 import {
   exportTeamsToPdf,
   exportTeamsToExcel,
@@ -334,7 +336,7 @@ const AddPlayerToTeamModal = ({ team, allPlayers, onClose, onPlayerAdded }) => {
   const [newPlayerId, setNewPlayerId] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newSession, setNewSession] = useState("2023-24");
-  const [newCategories, setNewCategories] = useState(["Batter"]);
+  const [newCategories, setNewCategories] = useState(["Batsman"]);
 
   // Candidates: players not already in this team
   const availablePlayers = useMemo(() => {
@@ -641,21 +643,16 @@ const AddPlayerToTeamModal = ({ team, allPlayers, onClose, onPlayerAdded }) => {
 
             <div>
               <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">
-                Category *
+                Category (Single Only) *
               </label>
               <div className="flex flex-wrap gap-2">
-                {["Batter", "Bowler", "All-Rounder", "Wicket Keeper"].map((cat) => (
+                {["Batsman", "Bowler", "ALL ROUNDER", "Wicket Keeper (Batsman)", "ICON PLAYER"].map((cat) => (
                   <label key={cat} className="flex items-center gap-1.5 cursor-pointer text-slate-300">
                     <input
-                      type="checkbox"
-                      checked={newCategories.includes(cat)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setNewCategories([...newCategories, cat]);
-                        } else {
-                          setNewCategories(newCategories.filter((c) => c !== cat));
-                        }
-                      }}
+                      type="radio"
+                      name="teamPlayerCategory"
+                      checked={newCategories[0] === cat}
+                      onChange={() => setNewCategories([cat])}
                     />
                     <span>{cat}</span>
                   </label>
@@ -692,6 +689,7 @@ const AddPlayerToTeamModal = ({ team, allPlayers, onClose, onPlayerAdded }) => {
 const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTeam }) => {
   const [currentTeam, setCurrentTeam] = useState(team);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  const [showCoinsModal, setShowCoinsModal] = useState(false);
   const [actionInProgressId, setActionInProgressId] = useState(null);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
@@ -703,8 +701,11 @@ const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTea
   const [savingManagers, setSavingManagers] = useState(false);
 
   useEffect(() => {
-    setCurrentTeam(team);
-    setEditingManagers(team.managers || []);
+    const timer = setTimeout(() => {
+      setCurrentTeam(team);
+      setEditingManagers(team.managers || []);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [team]);
 
   const handleManagerChange = (index, field, value) => {
@@ -866,6 +867,16 @@ const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTea
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              className="cursor-pointer rounded-lg bg-amber-500/20 border border-amber-500/40 px-2.5 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/35 flex items-center gap-1.5 shadow-sm"
+              type="button"
+              onClick={() => setShowCoinsModal(true)}
+              title="Add points to this team's purse"
+            >
+              <FaCoins className="text-[11px]" />
+              <span>+ Add Point</span>
+            </button>
+
             <ExportButtonGroup
               label="Download Team Sheet"
               variant="compact"
@@ -913,11 +924,27 @@ const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTea
 
         {/* TEAM INFO DETAILS */}
         <div className="grid grid-cols-2 gap-2 text-xs mb-4">
-          <DetailRow label="Purse Spent" value={`৳ ${totalSpent.toLocaleString()} / 50,000 pts`} />
           <DetailRow
-            label="Remaining Purse"
-            value={`৳ ${Math.max(0, 50000 - totalSpent).toLocaleString()} pts`}
+            label="Purse Spent"
+            value={`৳ ${totalSpent.toLocaleString()} / ${(currentTeam.points || 10000).toLocaleString()} pts`}
           />
+          <div className="rounded-lg border border-white/10 bg-[#02121f] p-2 flex items-center justify-between">
+            <div>
+              <span className="block text-[10px] uppercase font-bold text-[#8b979d]">Remaining Purse</span>
+              <span className="font-mono text-xs sm:text-sm font-black text-amber-400">
+                ৳ {Math.max(0, (currentTeam.points || 10000) - totalSpent).toLocaleString()} pts
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCoinsModal(true)}
+              className="cursor-pointer rounded bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/40 px-2 py-1 text-[10px] font-bold text-amber-300 flex items-center gap-1 shadow-sm transition-all"
+              title="Add points to team purse"
+            >
+              <FaCoins className="text-[9px]" />
+              <span>+ Add Point</span>
+            </button>
+          </div>
         </div>
 
         {/* MANAGERS SECTION */}
@@ -1205,6 +1232,19 @@ const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTea
             }}
           />
         )}
+
+        {/* ADJUST COINS MODAL */}
+        {showCoinsModal && (
+          <AdjustCoinsModal
+            team={currentTeam}
+            onClose={() => setShowCoinsModal(false)}
+            onCoinsUpdated={(updatedTeam) => {
+              setCurrentTeam(updatedTeam);
+              onTeamUpdated(updatedTeam);
+              setFeedback("Team coins updated successfully!");
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -1223,6 +1263,7 @@ const AdminTeamsView = () => {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
   const [deletingTeamId, setDeletingTeamId] = useState(null);
+  const [coinModalTeam, setCoinModalTeam] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -1388,6 +1429,7 @@ const AdminTeamsView = () => {
               <th className="px-3 py-3">Unique Key</th>
               <th className="px-3 py-3">Managers</th>
               <th className="px-3 py-3">Squad</th>
+              <th className="px-3 py-3">Coins / Purse</th>
               <th className="px-3 py-3">Status</th>
               <th className="whitespace-nowrap px-3 py-3">Registered</th>
               <th className="px-3 py-3 text-right">Actions</th>
@@ -1433,6 +1475,25 @@ const AdminTeamsView = () => {
                     {team.players?.length || 0} Players
                   </span>
                 </td>
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-amber-400">
+                      ৳ {(team.points || 10000).toLocaleString()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCoinModalTeam(team);
+                      }}
+                      className="rounded bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/40 px-2 py-0.5 text-[10px] font-bold text-amber-300 transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
+                      title={`Add points for ${team.name}`}
+                    >
+                      <FaCoins className="text-[9px]" />
+                      <span>+ Add Point</span>
+                    </button>
+                  </div>
+                </td>
                 <td className="px-3 py-3">
                   <b className={`rounded px-2 py-0.5 capitalize text-[10px] ${statusBadge[team.status]}`}>
                     {team.status}
@@ -1443,6 +1504,14 @@ const AdminTeamsView = () => {
                 </td>
                 <td className="px-3 py-3 text-right">
                   <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => setCoinModalTeam(team)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 border border-amber-500/40 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/35 cursor-pointer shadow-sm"
+                      title="Add or adjust team points"
+                    >
+                      <FaCoins className="text-[10px]" /> Add Point
+                    </button>
                     <button
                       type="button"
                       onClick={() => setSelectedTeam(team)}
@@ -1470,7 +1539,7 @@ const AdminTeamsView = () => {
             ))}
             {!loading && !filtered.length && (
               <tr>
-                <td className="px-3 py-8 text-center text-[#8b979d]" colSpan={9}>
+                <td className="px-3 py-8 text-center text-[#8b979d]" colSpan={10}>
                   No teams found. Click <b>&quot;Add New Team&quot;</b> to create one.
                 </td>
               </tr>
@@ -1504,6 +1573,16 @@ const AdminTeamsView = () => {
             loadData();
           }}
           onDeleteTeam={handleDeleteTeam}
+        />
+      )}
+      {/* ADJUST COINS MODAL */}
+      {coinModalTeam && (
+        <AdjustCoinsModal
+          team={coinModalTeam}
+          onClose={() => setCoinModalTeam(null)}
+          onCoinsUpdated={() => {
+            loadData();
+          }}
         />
       )}
     </section>

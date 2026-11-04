@@ -2,18 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  FaCrop,
   FaMagnifyingGlass,
   FaPlus,
   FaRotateRight,
   FaTrash,
+  FaUpload,
   FaXmark,
 } from "react-icons/fa6";
 import ExportButtonGroup from "./export-button-group";
 import {
   exportPlayersToPdf,
   exportPlayersToExcel,
+  exportAuctionTiersToPdf,
+  exportAuctionTiersToExcel,
+  getFormattedDate,
 } from "../lib/export-utils";
 import PlayerPhotocard from "./player-photocard";
+import ImageCropperModal from "./image-cropper-modal";
 
 const statusBadge = {
   pending: "bg-[#856406] text-yellow-200",
@@ -30,7 +36,7 @@ const DetailRow = ({ label, value }) => (
   </div>
 );
 
-const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUpdateTeam, onClose }) => {
+const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUpdateTeam, onOpenCropper, onClose }) => {
   const [modalTab, setModalTab] = useState("details"); // "details" | "photocard"
   const currentTierId =
     player.auctionTier?._id ||
@@ -113,45 +119,68 @@ const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUp
           </div>
         ) : (
           <>
-            <div className="mb-4 flex items-center gap-3">
-              <div className="relative shrink-0">
-                {player.photoUrl ? (
-                  <img
-                    className="size-16 rounded-full object-cover"
-                    src={player.photoUrl}
-                    alt={player.fullName}
-                  />
-                ) : (
-                  <div className="grid size-16 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d]">
-                    No Photo
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h2 className="text-lg font-bold">
-                  {player.fullName}
-                </h2>
-
-                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                  <b
-                    className={`inline-block rounded px-1.5 py-0.5 text-[10px] capitalize ${
-                      statusBadge[player.status]
-                    }`}
-                  >
-                    {player.status}
-                  </b>
-                  {player.auctionTier?.name || player.tier ? (
-                    <b className="inline-block rounded border border-[#d4a84f]/40 bg-[#76511d] px-1.5 py-0.5 text-[10px] text-[#f2d590]">
-                      {player.auctionTier?.name || player.tier}
-                    </b>
+            <div className="mb-4 flex items-center justify-between gap-3 flex-wrap bg-white/5 p-3 rounded-xl border border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="relative shrink-0 group">
+                  {player.photoUrl ? (
+                    <img
+                      className="size-16 rounded-full object-cover border-2 border-amber-400/60 shadow-lg"
+                      src={player.photoUrl}
+                      alt={player.fullName}
+                    />
                   ) : (
-                    <b className="inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-[#8b979d]">
-                      No Tier
-                    </b>
+                    <div className="grid size-16 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d] border-2 border-dashed border-white/20">
+                      No Photo
+                    </div>
+                  )}
+                  {onOpenCropper && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenCropper(player)}
+                      className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-amber-300 transition-opacity cursor-pointer"
+                      title="Edit / Crop Photo"
+                    >
+                      <FaCrop className="text-sm" />
+                    </button>
                   )}
                 </div>
+
+                <div>
+                  <h2 className="text-lg font-bold text-white">
+                    {player.fullName}
+                  </h2>
+
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <b
+                      className={`inline-block rounded px-1.5 py-0.5 text-[10px] capitalize ${
+                        statusBadge[player.status]
+                      }`}
+                    >
+                      {player.status}
+                    </b>
+                    {player.auctionTier?.name || player.tier ? (
+                      <b className="inline-block rounded border border-[#d4a84f]/40 bg-[#76511d] px-1.5 py-0.5 text-[10px] text-[#f2d590]">
+                        {player.auctionTier?.name || player.tier}
+                      </b>
+                    ) : (
+                      <b className="inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-[#8b979d]">
+                        No Tier
+                      </b>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              {onOpenCropper && (
+                <button
+                  type="button"
+                  onClick={() => onOpenCropper(player)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/25 transition-all cursor-pointer shadow-sm"
+                >
+                  <FaCrop className="text-xs" />
+                  <span>Edit / Crop Photo</span>
+                </button>
+              )}
             </div>
 
         <div className="grid gap-x-4 min-[520px]:grid-cols-2">
@@ -268,10 +297,13 @@ const AddPlayerModal = ({ allTeams = [], allTiers = [], onClose, onPlayerCreated
   const [session, setSession] = useState("2023-24");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [email, setEmail] = useState("");
-  const [categories, setCategories] = useState(["Batter"]);
+  const [categories, setCategories] = useState(["Batsman"]);
   const [teamId, setTeamId] = useState("");
   const [tierId, setTierId] = useState("");
   const [soldPrice, setSoldPrice] = useState("0");
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [showCropper, setShowCropper] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -310,7 +342,25 @@ const AddPlayerModal = ({ allTeams = [], allTiers = [], onClose, onPlayerCreated
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create player.");
 
-      onPlayerCreated(data.player);
+      let createdPlayer = data.player;
+      if (photoFile && createdPlayer?._id) {
+        try {
+          const fd = new FormData();
+          fd.append("photo", photoFile);
+          const photoRes = await fetch(`/api/players/${createdPlayer._id}/photo`, {
+            method: "POST",
+            body: fd,
+          });
+          const photoData = await photoRes.json();
+          if (photoRes.ok && photoData.photoUrl) {
+            createdPlayer = { ...createdPlayer, photoUrl: photoData.photoUrl };
+          }
+        } catch {
+          // ignore photo upload failure on add
+        }
+      }
+
+      onPlayerCreated(createdPlayer);
       onClose();
     } catch (err) {
       setError(err.message || "Failed to create player.");
@@ -423,17 +473,15 @@ const AddPlayerModal = ({ allTeams = [], allTiers = [], onClose, onPlayerCreated
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Categories *</label>
+            <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">Playing Category (Single Only) *</label>
             <div className="flex flex-wrap gap-3">
-              {["Batter", "Bowler", "All-Rounder", "Wicket Keeper"].map((cat) => (
+              {["Batsman", "Bowler", "ALL ROUNDER", "Wicket Keeper (Batsman)", "ICON PLAYER"].map((cat) => (
                 <label key={cat} className="flex items-center gap-1.5 cursor-pointer text-slate-300">
                   <input
-                    type="checkbox"
-                    checked={categories.includes(cat)}
-                    onChange={(e) => {
-                      if (e.target.checked) setCategories([...categories, cat]);
-                      else setCategories(categories.filter((c) => c !== cat));
-                    }}
+                    type="radio"
+                    name="adminPlayerCategory"
+                    checked={categories[0] === cat}
+                    onChange={() => setCategories([cat])}
                   />
                   <span>{cat}</span>
                 </label>
@@ -489,6 +537,67 @@ const AddPlayerModal = ({ allTeams = [], allTiers = [], onClose, onPlayerCreated
             </div>
           )}
 
+          {/* Photo Field & Crop */}
+          <div>
+            <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">
+              Player Photo (Optional)
+            </label>
+            <div className="flex items-center gap-3">
+              {photoPreview ? (
+                <div className="relative size-12 rounded-full overflow-hidden border-2 border-amber-400 shrink-0">
+                  <img src={photoPreview} alt="Preview" className="size-full object-cover" />
+                </div>
+              ) : (
+                <div className="grid size-12 place-items-center rounded-full bg-white/10 text-[10px] text-slate-400 border border-white/20 shrink-0">
+                  No Photo
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/20 transition-colors">
+                  <FaUpload className="text-xs text-amber-400" />
+                  <span>Choose Photo</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setPhotoFile(file);
+                        setPhotoPreview(URL.createObjectURL(file));
+                        setShowCropper(true);
+                      }
+                    }}
+                  />
+                </label>
+
+                {photoPreview && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowCropper(true)}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/30 transition-colors"
+                    >
+                      <FaCrop className="text-xs" />
+                      <span>Crop / Adjust</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhotoFile(null);
+                        setPhotoPreview(null);
+                      }}
+                      className="text-xs text-rose-400 hover:text-rose-300 font-bold ml-1"
+                    >
+                      Remove
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
             <button
               type="button"
@@ -508,6 +617,21 @@ const AddPlayerModal = ({ allTeams = [], allTiers = [], onClose, onPlayerCreated
           </div>
         </form>
       </div>
+
+      {showCropper && (
+        <ImageCropperModal
+          isOpen={showCropper}
+          title="Crop Player Photo"
+          initialFile={photoFile}
+          initialImageUrl={photoPreview}
+          playerName={fullName || "New Player"}
+          onSave={({ file, dataUrl }) => {
+            setPhotoFile(file);
+            setPhotoPreview(dataUrl);
+          }}
+          onClose={() => setShowCropper(false)}
+        />
+      )}
     </div>
   );
 };
@@ -530,6 +654,13 @@ const AdminPlayersView = () => {
   const [updatingId, setUpdatingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [croppingPlayer, setCroppingPlayer] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const showSuccess = (msg) => {
+    setSuccessMessage(msg);
+    setTimeout(() => setSuccessMessage(""), 4000);
+  };
 
   // =========================
   // LOAD PLAYERS & TIERS
@@ -908,6 +1039,28 @@ const AdminPlayersView = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* MASTER WHOLE TIER LIST EXPORT */}
+          <ExportButtonGroup
+            label="Download Master Tier List"
+            variant="gold"
+            pdfLabel="Download Entire Master Player Tier & Category List (All at once) as PDF"
+            excelLabel="Download Entire Master Player Tier & Category List (All at once) as Excel (.xlsx)"
+            onExportPdf={() => {
+              exportAuctionTiersToPdf(allTiers, players, {
+                title: "Official Master Auction Tiers & Player Pool",
+                filterDescription: `Master All-Categories Allocation • Total Tiers: ${allTiers.length} • Total Players: ${players.length}`,
+                category: "Master_All_Tiers",
+                includeRoster: true,
+              });
+            }}
+            onExportExcel={() => {
+              exportAuctionTiersToExcel(allTiers, players, {
+                category: "Master_All_Categories",
+                fileName: `EPL_2027_Master_Auction_Tiers_All_${getFormattedDate().fileSuffix}.xlsx`,
+              });
+            }}
+          />
+
           <ExportButtonGroup
             label="Download Players"
             count={filtered.length}
@@ -1075,6 +1228,12 @@ const AdminPlayersView = () => {
           : `Showing ${filtered.length} of ${players.length} players`}
       </p>
 
+      {successMessage && (
+        <div className="mb-3 rounded-xl border border-emerald-500/40 bg-emerald-500/15 p-3 text-xs font-bold text-emerald-300 shadow-md">
+          ✓ {successMessage}
+        </div>
+      )}
+
       {error && (
         <p className="mb-2 text-xs text-red-300">
           {error}
@@ -1113,15 +1272,30 @@ const AdminPlayersView = () => {
                   </td>
 
                   <td className="px-2 py-2">
-                    {p.photoUrl ? (
-                      <img
-                        className="size-8 rounded-full object-cover"
-                        src={p.photoUrl}
-                        alt={p.fullName}
-                      />
-                    ) : (
-                      "—"
-                    )}
+                    <div className="relative group size-8 inline-block">
+                      {p.photoUrl ? (
+                        <img
+                          className="size-8 rounded-full object-cover border border-white/20"
+                          src={p.photoUrl}
+                          alt={p.fullName}
+                        />
+                      ) : (
+                        <div className="grid size-8 place-items-center rounded-full bg-white/10 text-[10px] text-[#8b979d]">
+                          —
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCroppingPlayer(p);
+                        }}
+                        className="absolute inset-0 rounded-full bg-black/75 opacity-0 group-hover:opacity-100 flex items-center justify-center text-amber-300 transition-opacity cursor-pointer"
+                        title={`Crop or replace photo for ${p.fullName}`}
+                      >
+                        <FaCrop className="text-[10px]" />
+                      </button>
+                    </div>
                   </td>
 
                   <td className="whitespace-nowrap px-2 py-2 font-medium">
@@ -1231,6 +1405,20 @@ const AdminPlayersView = () => {
                     {p.status === "rejected" &&
                       "—"}
 
+                    {/* CROP PHOTO BUTTON */}
+                    <button
+                      className="ml-1 inline-flex cursor-pointer items-center gap-1 rounded border border-amber-500/40 bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300 hover:bg-amber-500/35 transition-colors"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setCroppingPlayer(p);
+                      }}
+                      title={`Edit or Crop photo for ${p.fullName}`}
+                    >
+                      <FaCrop className="text-[9px]" />
+                      Crop
+                    </button>
+
                     {/* DELETE BUTTON */}
                     <button
                       className="ml-1 inline-flex cursor-pointer items-center gap-1 rounded bg-[#7a1f1f] px-2 py-1 text-[10px] font-bold text-[#ff9d9d] disabled:cursor-not-allowed disabled:opacity-60"
@@ -1292,9 +1480,49 @@ const AdminPlayersView = () => {
           allTeams={allTeams}
           onUpdateTier={updatePlayerTier}
           onUpdateTeam={updatePlayerTeam}
+          onOpenCropper={(p) => setCroppingPlayer(p)}
           onClose={() =>
             setSelectedPlayer(null)
           }
+        />
+      )}
+
+      {croppingPlayer && (
+        <ImageCropperModal
+          isOpen={Boolean(croppingPlayer)}
+          playerName={croppingPlayer.fullName}
+          initialImageUrl={croppingPlayer.photoUrl}
+          onSave={async ({ blob, file }) => {
+            const formData = new FormData();
+            formData.append("photo", file || blob);
+
+            const res = await fetch(`/api/players/${croppingPlayer._id}/photo`, {
+              method: "POST",
+              body: formData,
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to update player photo.");
+
+            // Update player in players state
+            setPlayers((prev) =>
+              prev.map((p) =>
+                p._id === croppingPlayer._id
+                  ? { ...p, photoUrl: data.photoUrl }
+                  : p
+              )
+            );
+
+            // Update selectedPlayer if open
+            setSelectedPlayer((prev) =>
+              prev && prev._id === croppingPlayer._id
+                ? { ...prev, photoUrl: data.photoUrl }
+                : prev
+            );
+
+            showSuccess(`Photo updated successfully for ${croppingPlayer.fullName}!`);
+          }}
+          onClose={() => setCroppingPlayer(null)}
         />
       )}
     </section>

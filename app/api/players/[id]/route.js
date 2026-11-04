@@ -11,15 +11,40 @@ export const PATCH = async (request, { params }) => {
   if (!session) return Response.json({ error: "Not authenticated." }, { status: 401 });
 
   const body = await request.json();
-  const { status, tierId, auctionTier, teamId, soldPrice } = body;
+  const { status, tierId, auctionTier, teamId, soldPrice, categories, category, playingRole, isIcon, photoUrl, basePrice } = body;
 
   const updateFields = {};
+
+  if (basePrice !== undefined) {
+    updateFields.basePrice = Math.max(0, Number(basePrice) || 0);
+  }
+
+  if (photoUrl !== undefined) {
+    updateFields.photoUrl = photoUrl;
+  }
+
+  if (playingRole !== undefined) {
+    updateFields.playingRole = playingRole;
+  }
+
+  if (isIcon !== undefined) {
+    updateFields.isIcon = Boolean(isIcon);
+  }
 
   if (status !== undefined) {
     if (!["pending", "approved", "rejected"].includes(status)) {
       return Response.json({ error: "Invalid status." }, { status: 400 });
     }
     updateFields.status = status;
+  }
+
+  if (categories !== undefined) {
+    const catList = Array.isArray(categories) ? categories.filter(Boolean) : [categories].filter(Boolean);
+    if (catList.length > 0) {
+      updateFields.categories = [catList[0]]; // Strictly one category
+    }
+  } else if (category !== undefined && category) {
+    updateFields.categories = [category];
   }
 
   await connectToDatabase();
@@ -40,6 +65,9 @@ export const PATCH = async (request, { params }) => {
       updateFields.auctionTier = tier._id;
       updateFields.tier = tier.name;
       updateFields.basePrice = tier.basePrice;
+      if (tier.category) {
+        updateFields.categories = [tier.category]; // Strictly one category matching tier
+      }
     }
   }
 

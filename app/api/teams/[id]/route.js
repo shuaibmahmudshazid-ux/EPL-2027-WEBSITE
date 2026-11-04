@@ -98,6 +98,50 @@ export const PATCH = async (request, { params }) => {
     return Response.json({ error: "Team not found." }, { status: 404 });
   }
 
+  // Action: Add / Deduct / Set team points
+  if (
+    action === "adjust_coins" ||
+    action === "add_coins" ||
+    action === "set_coins" ||
+    action === "adjust_points" ||
+    action === "add_points" ||
+    action === "set_points"
+  ) {
+    const amount = Number(body.amount);
+    if (isNaN(amount)) {
+      return Response.json({ error: "Valid point amount is required." }, { status: 400 });
+    }
+
+    if (action === "set_coins" || action === "set_points") {
+      team.points = Math.max(0, amount);
+    } else {
+      team.points = Math.max(0, (team.points || 10000) + amount);
+    }
+
+    const populated = await Team.findById(team._id).populate("players", "soldPrice");
+    const actualSpent = (populated?.players || []).reduce(
+      (sum, p) => sum + (Number(p.soldPrice) || 0),
+      0
+    );
+    team.pointsSpent = actualSpent;
+
+    await team.save();
+
+    const updatedTeam = await Team.findById(team._id)
+      .populate("players", "fullName playerId categories soldPrice basePrice photoUrl session auctionStatus tier registrationNumber")
+      .lean();
+
+    return Response.json({
+      message: `Points updated for ${team.name}. Total Budget: ${team.points.toLocaleString()} PTS.`,
+      team: {
+        ...updatedTeam,
+        pointsRemaining: Math.max(0, team.points - actualSpent),
+      },
+      points: team.points,
+      pointsRemaining: Math.max(0, team.points - actualSpent),
+    });
+  }
+
   // Action: Add an existing player to this team
   if (action === "add_player") {
     if (!playerId) {

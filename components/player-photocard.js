@@ -77,11 +77,22 @@ const UI_THEME = {
 };
 
 export default function PlayerPhotocard({
-  player = {},
+  player: rawPlayer = {},
   index = 0,
   interactive = true,
   className = "",
 }) {
+  const isIcon = Boolean(
+    rawPlayer.isIcon ||
+    rawPlayer.tier === "ICON PLAYER" ||
+    (Array.isArray(rawPlayer.categories) && rawPlayer.categories.includes("ICON PLAYER"))
+  );
+
+  const player = useMemo(() => ({
+    ...rawPlayer,
+    isIcon,
+  }), [rawPlayer, isIcon]);
+
   const sessionString = useMemo(() => {
     return formatPlayerSession(player.session);
   }, [player.session]);
@@ -91,6 +102,9 @@ export default function PlayerPhotocard({
   }, [player.session]);
 
   const roleInfo = useMemo(() => {
+    if (player.playingRole) {
+      return formatPlayerCategory([player.playingRole]);
+    }
     return formatPlayerCategory(player.categories || [player.category]);
   }, [player]);
 
