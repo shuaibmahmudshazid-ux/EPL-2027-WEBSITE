@@ -62,7 +62,7 @@ export default function PlayerRegistrationPage() {
                   </span>
                 </h2>
                 <p className="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
-                  Player registration closes strictly at 11:59 PM (Midnight). Submit your authenticated student ID and clear passport photo to be evaluated for auction draft tiers.
+                  Player registration closes strictly at 11:59 PM (Midnight). Submit your name and clear passport photo to be evaluated for auction draft tiers.
                 </p>
               </div>
             </div>

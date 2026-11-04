@@ -44,7 +44,7 @@ export default function RegistrationSuccessPage() {
 
             {playerId && (
               <div className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm text-slate-200">
-                <span className="text-slate-400 font-medium">Verified Student ID:</span>
+                <span className="text-slate-400 font-medium">Player / Student ID:</span>
                 <b className="font-mono text-base font-black text-amber-400">{playerId}</b>
               </div>
             )}

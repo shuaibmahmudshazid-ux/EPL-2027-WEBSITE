@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 const playerSchema = new mongoose.Schema(
   {
     fullName: { type: String, required: true, trim: true },
-    phone: { type: String, required: true, trim: true },
-    playerId: { type: String, required: true, trim: true, unique: true },
+    phone: { type: String, trim: true, default: null },
+    playerId: { type: String, trim: true, unique: true, sparse: true },
     registrationNumber: { type: String, trim: true, default: null },
     paymentMethod: { type: String, enum: ["bkash", "nagad", "rocket", "cash", "other"], default: null },
     transactionId: { type: String, trim: true, default: null },
@@ -17,14 +17,10 @@ const playerSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
-    session: { type: String, required: true },
+    session: { type: String, default: null },
     categories: {
       type: [String],
-      required: true,
-      validate: {
-        validator: (value) => Array.isArray(value) && value.length === 1 && Boolean(value[0]),
-        message: "A player can have only one category.",
-      },
+      default: ["Batsman"],
     },
     playingRole: { type: String, trim: true, default: null },
     isIcon: { type: Boolean, default: false },

@@ -22,6 +22,7 @@ import SiteNavbar from "./site-navbar";
 import TeamCrest from "./team-crest";
 import AuctionRoundStamp from "./auction-round-stamp";
 import CountdownCard from "./countdown-card";
+import FullscreenSoldPlayerCard from "./fullscreen-sold-player-card";
 import { calculateNextBid, getBidIncrement } from "../lib/auctionRules";
 
 const pad = (val) => String(val).padStart(2, "0");
@@ -286,9 +287,11 @@ export default function LiveAuctionArena() {
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
   const [inspectTeamSquad, setInspectTeamSquad] = useState(null);
   const [newlyPurchasedPlayer, setNewlyPurchasedPlayer] = useState(null);
+  const [isSoldCardDismissed, setIsSoldCardDismissed] = useState(false);
 
   const prevBidRef = useRef(0);
   const prevPurchasedCountRef = useRef(null);
+  const lastSoldKeyRef = useRef(null);
 
   // Polling live auction state
   const fetchState = useCallback(async () => {
@@ -367,7 +370,7 @@ export default function LiveAuctionArena() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggleFullscreen]);
 
-  const state = auctionData?.state || {};
+  const state = useMemo(() => auctionData?.state || {}, [auctionData?.state]);
 
   // Check if auction is actively running from admin action
   const isAuctionActive =
@@ -543,6 +546,77 @@ export default function LiveAuctionArena() {
           : (activePlayer?.currentBidderTeamLogo || state.currentBidderTeamLogo)),
     };
   }, [state, activePlayer, teamsList]);
+
+  // Sold price of the current player under hammer
+  const soldPrice = useMemo(() => {
+    return Number(state.currentBid || activePlayer?.currentBid || 0);
+  }, [state.currentBid, activePlayer]);
+
+  // Compute highest sold price of all OTHER players sold so far
+  const maxOtherSoldPrice = useMemo(() => {
+    let max = 0;
+    const currentActiveId =
+      activePlayer?.playerId ||
+      (state.players?.[state.currentPlayerIndex]?.player)?.toString();
+
+    // 1. Check all sold players in database history
+    if (Array.isArray(auctionData?.auctionedPlayers)) {
+      for (const p of auctionData.auctionedPlayers) {
+        if (p.auctionStatus === "sold") {
+          const id = p._id?.toString() || p.playerId;
+          if (id && currentActiveId && id === currentActiveId) continue;
+          const price = Number(p.soldPrice) || 0;
+          if (price > max) max = price;
+        }
+      }
+    }
+
+    // 2. Check all teams' rosters in DB
+    if (Array.isArray(auctionData?.teams)) {
+      for (const t of auctionData.teams) {
+        for (const p of (t.players || [])) {
+          const id = p._id?.toString() || p.playerId;
+          if (id && currentActiveId && id === currentActiveId) continue;
+          const price = Number(p.soldPrice) || 0;
+          if (price > max) max = price;
+        }
+      }
+    }
+
+    // 3. Check current auction tier queue
+    if (Array.isArray(state.players)) {
+      state.players.forEach((p, idx) => {
+        if (idx !== state.currentPlayerIndex && p.status === "sold") {
+          const price = Number(p.soldPrice) || 0;
+          if (price > max) max = price;
+        }
+      });
+    }
+
+    return max;
+  }, [auctionData, activePlayer, state.players, state.currentPlayerIndex]);
+
+  // Player is highest bid till then if their price is > 0 and >= max of any other sold player
+  const isHighestBidTillThen = useMemo(() => {
+    return Boolean(soldPrice > 0 && soldPrice >= maxOtherSoldPrice);
+  }, [soldPrice, maxOtherSoldPrice]);
+
+  // Reset sold card dismissed state when a newly sold player arrives or status changes
+  const currentSoldKey = (state.hammerStatus || "").toLowerCase() === "sold"
+    ? `${state.currentPlayerIndex}_${soldPrice}_${state.currentBidderTeam || state.soldToTeam || ""}`
+    : null;
+
+  useEffect(() => {
+    if (currentSoldKey && currentSoldKey !== lastSoldKeyRef.current) {
+      lastSoldKeyRef.current = currentSoldKey;
+      const timer = setTimeout(() => {
+        setIsSoldCardDismissed(false);
+      }, 0);
+      return () => clearTimeout(timer);
+    } else if (!currentSoldKey) {
+      lastSoldKeyRef.current = null;
+    }
+  }, [currentSoldKey]);
 
   // Team authentication handler
   const handleTeamLogin = async (e) => {
@@ -1518,6 +1592,19 @@ export default function LiveAuctionArena() {
           </div>
         </div>
       )}
+
+      {/* Fullscreen Sold Player Presentation Card (Public Arena Only) */}
+      {(state.hammerStatus || "").toLowerCase() === "sold" &&
+        !isSoldCardDismissed &&
+        activePlayer && (
+          <FullscreenSoldPlayerCard
+            player={activePlayer}
+            winningTeam={winningOrLeadingTeam}
+            soldPrice={soldPrice}
+            isHighestBid={isHighestBidTillThen}
+            onClose={() => setIsSoldCardDismissed(true)}
+          />
+        )}
 
       {/* Floating Quick Fullscreen Toggle Button */}
       <button

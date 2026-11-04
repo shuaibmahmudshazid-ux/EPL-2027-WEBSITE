@@ -40,11 +40,13 @@ const categories = [
 const fieldClass =
   "h-[52px] w-full rounded-xl border border-white/10 bg-[#0A0F1D]/80 px-4 text-sm text-white font-medium outline-none placeholder:text-slate-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/50 transition-all";
 
-const Input = ({ label, name, type = "text", required = true, ...props }) => (
+const Input = ({ label, name, type = "text", required = false, ...props }) => (
   <label className="block">
     <span className="mb-2 block text-xs font-black uppercase tracking-wider text-amber-400">
       {label}
-      {!required && (
+      {required ? (
+        <span className="ml-1 text-rose-400 font-bold">*</span>
+      ) : (
         <em className="ml-1 text-[11px] font-normal text-slate-400 not-italic">(Optional)</em>
       )}
     </span>
@@ -142,7 +144,8 @@ export default function PlayerRegistrationForm() {
     const value = event.target.value.replace(/\D/g, "").slice(0, 7);
     event.target.value = value;
     clearTimeout(idCheckTimer.current);
-    if (value.length !== 7) return setIdStatus(value ? "invalid" : null);
+    if (!value) return setIdStatus(null);
+    if (value.length !== 7) return setIdStatus("invalid");
     setIdStatus("checking");
     idCheckTimer.current = setTimeout(async () => {
       try {
@@ -159,20 +162,38 @@ export default function PlayerRegistrationForm() {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
-    const phone = data.get("phone")?.toString().replace(/\D/g, "") || "";
-    const playerId = data.get("playerId")?.toString().replace(/\D/g, "") || "";
 
-    if (phone.length !== 11) return setMessage("Phone number must be exactly 11 digits.");
-    if (playerId.length !== 7) return setMessage("Student ID must be exactly 7 digits.");
-    if (idStatus === "taken") return setMessage("This Student ID is already registered.");
+    const fullName = data.get("fullName")?.toString().trim();
+    if (!fullName) {
+      return setMessage("Please enter the player's full name.");
+    }
 
     const formPhoto = data.get("photo");
     if ((!formPhoto || !(formPhoto instanceof File) || formPhoto.size === 0) && photoFile) {
       data.set("photo", photoFile);
     }
 
-    if (!data.get("photo") || (data.get("photo") instanceof File && data.get("photo").size === 0)) {
+    const activePhoto = data.get("photo");
+    if (!activePhoto || !(activePhoto instanceof File) || activePhoto.size === 0) {
       return setMessage("Please upload a player passport photo.");
+    }
+
+    const phone = data.get("phone")?.toString().replace(/\D/g, "") || "";
+    if (phone && phone.length !== 11) {
+      return setMessage("Phone number must be exactly 11 digits.");
+    }
+
+    const playerId = data.get("playerId")?.toString().replace(/\D/g, "") || "";
+    if (playerId && playerId.length !== 7) {
+      return setMessage("Student ID must be exactly 7 digits.");
+    }
+    if (playerId && idStatus === "taken") {
+      return setMessage("This Student ID is already registered.");
+    }
+
+    const regNo = data.get("registrationNumber")?.toString().replace(/\D/g, "") || "";
+    if (regNo && regNo.length !== 5) {
+      return setMessage("Registration number must be exactly 5 digits.");
     }
 
     setStatus("loading");
@@ -182,8 +203,8 @@ export default function PlayerRegistrationForm() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       router.push(
-        `/registration-success?playerId=${result.player.playerId}&name=${encodeURIComponent(
-          result.player.fullName
+        `/registration-success?playerId=${result.player?.playerId || ""}&name=${encodeURIComponent(
+          result.player?.fullName || fullName
         )}`
       );
     } catch (error) {
@@ -203,9 +224,9 @@ export default function PlayerRegistrationForm() {
       <div className="mb-8">
         <div className="grid grid-cols-3 gap-2 sm:gap-4 pb-4 border-b border-white/10">
           {[
-            { step: 1, title: "Identity Details", desc: "Roll, Session, Contact" },
-            { step: 2, title: "Cricket Role", desc: "Category & Playing Skill" },
-            { step: 3, title: "Photo & Review", desc: "Live Stage Passport" },
+            { step: 1, title: "Identity Details", desc: "Name (Required) & Contact" },
+            { step: 2, title: "Photo & Stage", desc: "Passport Photo (Required)" },
+            { step: 3, title: "Draft Role", desc: "Category & Session (Optional)" },
           ].map((item) => (
             <div key={item.step} className="flex items-center gap-3">
               <div
@@ -256,7 +277,7 @@ export default function PlayerRegistrationForm() {
         {/* Photo Upload with Drag and Drop */}
         <div>
           <span className="mb-2 block text-xs font-black uppercase tracking-wider text-amber-400">
-            Player Passport Photo
+            Player Passport Photo <span className="ml-1 text-rose-400 font-bold">*</span>
           </span>
           <label
             htmlFor="player-photo-input"
@@ -273,6 +294,7 @@ export default function PlayerRegistrationForm() {
           >
             {photoPreview ? (
               <div className="relative size-full group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   className="size-full object-cover"
                   src={photoPreview}
@@ -334,7 +356,7 @@ export default function PlayerRegistrationForm() {
               className="sr-only"
               type="file"
               name="photo"
-              accept="image/png,image/jpeg"
+              accept="image/png,image/jpeg,image/webp"
               onChange={handlePhotoChange}
             />
           </label>
@@ -345,31 +367,30 @@ export default function PlayerRegistrationForm() {
 
         {/* Inputs Column */}
         <div className="grid gap-5 sm:grid-cols-2">
-          <Input label="FULL NAME" name="fullName" placeholder="e.g. Shuaib Mahmud" />
+          <Input label="FULL NAME" name="fullName" placeholder="e.g. Shuaib Mahmud" required={true} />
           
           <Input
             label="MOBILE NUMBER (11 DIGITS)"
             name="phone"
             type="tel"
             inputMode="numeric"
-            pattern="[0-9]{11}"
+            required={false}
             placeholder="01XXXXXXXXX"
           />
 
           <label className="block">
             <span className="mb-2 block text-xs font-black uppercase tracking-wider text-amber-400">
               STUDENT ID (7 DIGITS)
+              <em className="ml-1 text-[11px] font-normal text-slate-400 not-italic">(Optional)</em>
             </span>
             <input
               className={fieldClass}
               name="playerId"
               type="text"
               inputMode="numeric"
-              pattern="[0-9]{7}"
               maxLength={7}
               placeholder="e.g. 2102001"
               onChange={handlePlayerIdChange}
-              required
             />
             {idStatus && (
               <small className={`mt-1.5 block text-xs ${idStatusClass[idStatus]}`}>
@@ -383,17 +404,18 @@ export default function PlayerRegistrationForm() {
             name="registrationNumber"
             type="text"
             inputMode="numeric"
-            pattern="[0-9]{5}"
             maxLength={5}
+            required={false}
             placeholder="5 digit reg number"
           />
 
           <label className="block">
             <span className="mb-2 block text-xs font-black uppercase tracking-wider text-amber-400">
               ACADEMIC SESSION
+              <em className="ml-1 text-[11px] font-normal text-slate-400 not-italic">(Optional)</em>
             </span>
-            <select className={fieldClass} name="session" required>
-              <option value="" className="bg-[#0A0F1D] text-slate-400">Select session</option>
+            <select className={fieldClass} name="session">
+              <option value="" className="bg-[#0A0F1D] text-slate-400">Select session (Optional)</option>
               {sessions.map((session) => (
                 <option key={session} value={session} className="bg-[#0A0F1D] text-white">
                   {session}
@@ -414,6 +436,7 @@ export default function PlayerRegistrationForm() {
           <fieldset className="sm:col-span-2">
             <legend className="mb-2 text-xs font-black uppercase tracking-wider text-amber-400">
               PLAYING CATEGORY & ROLE
+              <em className="ml-1 text-[11px] font-normal text-slate-400 not-italic">(Optional)</em>
             </legend>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 rounded-2xl border border-white/10 bg-[#0A0F1D]/80 p-3.5">
               {categories.map((category) => (
@@ -426,7 +449,6 @@ export default function PlayerRegistrationForm() {
                     type="radio"
                     name="categories[]"
                     value={category}
-                    required
                   />
                   <span>{category}</span>
                 </label>

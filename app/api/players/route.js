@@ -66,18 +66,26 @@ export const POST = async (request) => {
         soldPrice,
       } = json;
 
-      if (!fullName || !phone || !playerId || !session || !categories?.length) {
+      if (!fullName || !fullName.trim()) {
         return Response.json(
-          { error: "Full name, phone, student ID, session, and category are required." },
+          { error: "Player full name is required." },
           { status: 400 }
         );
       }
 
       await connectToDatabase();
 
-      const existing = await Player.findOne({ playerId: playerId.trim() }).lean();
-      if (existing) {
-        return Response.json({ error: "This Student ID is already registered." }, { status: 409 });
+      let assignedPlayerId = playerId ? playerId.trim() : null;
+      if (assignedPlayerId) {
+        const existing = await Player.findOne({ playerId: assignedPlayerId }).lean();
+        if (existing) {
+          return Response.json({ error: "This Student ID is already registered." }, { status: 409 });
+        }
+      } else {
+        assignedPlayerId = String(Math.floor(1000000 + Math.random() * 9000000));
+        while (await Player.exists({ playerId: assignedPlayerId })) {
+          assignedPlayerId = String(Math.floor(1000000 + Math.random() * 9000000));
+        }
       }
 
       const rawCategories = Array.isArray(categories) ? categories.filter(Boolean) : [categories].filter(Boolean);
@@ -85,11 +93,11 @@ export const POST = async (request) => {
 
       const player = await Player.create({
         fullName: fullName.trim(),
-        phone: phone.trim(),
-        playerId: playerId.trim(),
+        phone: phone ? phone.trim() : null,
+        playerId: assignedPlayerId,
         registrationNumber: registrationNumber ? registrationNumber.trim() : undefined,
         email: email ? email.trim().toLowerCase() : undefined,
-        session,
+        session: session || "2024-2025",
         categories: singleCategories,
         photoUrl: photoUrl || null,
         status: "approved",
@@ -141,27 +149,27 @@ export const POST = async (request) => {
     const categories = rawCategories.length > 0 ? [rawCategories[0]] : [];
     const photo = formData.get("photo");
 
-    // Required fields check
-    if (
-      !fullName ||
-      !phone ||
-      !playerId ||
-      !registrationNumber ||
-      !session ||
-      !categories.length ||
-      !(photo instanceof File)
-    ) {
+    // Only fullName and photo are mandatory
+    if (!fullName) {
       return Response.json(
         {
-          error:
-            "Complete all required fields and upload a photo.",
+          error: "Player full name is required.",
         },
         { status: 400 }
       );
     }
 
-    // Phone validation
-    if (!/^\d{11}$/.test(phone)) {
+    if (!photo || !(photo instanceof File) || photo.size === 0) {
+      return Response.json(
+        {
+          error: "Player passport photo is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Phone validation (optional)
+    if (phone && !/^\d{11}$/.test(phone)) {
       return Response.json(
         {
           error:
@@ -171,8 +179,8 @@ export const POST = async (request) => {
       );
     }
 
-    // Student ID validation
-    if (!/^\d{7}$/.test(playerId)) {
+    // Student ID validation (optional)
+    if (playerId && !/^\d{7}$/.test(playerId)) {
       return Response.json(
         {
           error:
@@ -182,8 +190,8 @@ export const POST = async (request) => {
       );
     }
 
-    // Registration number validation
-    if (!/^\d{5}$/.test(registrationNumber)) {
+    // Registration number validation (optional)
+    if (registrationNumber && !/^\d{5}$/.test(registrationNumber)) {
       return Response.json(
         {
           error:
@@ -193,7 +201,7 @@ export const POST = async (request) => {
       );
     }
 
-    // Email validation
+    // Email validation (optional)
     if (
       email &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -208,11 +216,11 @@ export const POST = async (request) => {
 
     // Photo validation
     if (
-      !["image/jpeg", "image/png"].includes(photo.type)
+      !["image/jpeg", "image/png", "image/webp"].includes(photo.type)
     ) {
       return Response.json(
         {
-          error: "Photo must be a JPG or PNG file.",
+          error: "Photo must be a JPG, PNG, or WEBP file.",
         },
         { status: 400 }
       );
@@ -229,24 +237,26 @@ export const POST = async (request) => {
 
     await connectToDatabase();
 
-    // Check duplicate Student ID / Email
-    const existing = await Player.findOne({
-      $or: [
-        { playerId },
-        ...(email ? [{ email }] : []),
-      ],
-    }).lean();
+    // Check duplicate Student ID if provided
+    if (playerId) {
+      const existingId = await Player.findOne({ playerId }).lean();
+      if (existingId) {
+        return Response.json(
+          { error: "This Student ID is already registered." },
+          { status: 409 }
+        );
+      }
+    }
 
-    if (existing) {
-      return Response.json(
-        {
-          error:
-            existing.playerId === playerId
-              ? "This Student ID is already registered."
-              : "This email is already registered.",
-        },
-        { status: 409 }
-      );
+    // Check duplicate Email if provided
+    if (email) {
+      const existingEmail = await Player.findOne({ email }).lean();
+      if (existingEmail) {
+        return Response.json(
+          { error: "This email is already registered." },
+          { status: 409 }
+        );
+      }
     }
 
     // Upload photo to Cloudinary
@@ -255,15 +265,27 @@ export const POST = async (request) => {
       "epl/player-photos"
     );
 
+    // If student ID wasn't provided, generate a unique 7-digit player ID
+    let finalPlayerId = playerId || null;
+    if (!finalPlayerId) {
+      finalPlayerId = String(Math.floor(1000000 + Math.random() * 9000000));
+      while (await Player.exists({ playerId: finalPlayerId })) {
+        finalPlayerId = String(Math.floor(1000000 + Math.random() * 9000000));
+      }
+    }
+
+    const assignedCategories = categories.length > 0 ? categories : ["Batsman"];
+    const assignedSession = session || "2024-2025";
+
     // Create player
     const player = await Player.create({
       fullName,
-      phone,
-      playerId,
-      registrationNumber,
+      phone: phone || null,
+      playerId: finalPlayerId,
+      registrationNumber: registrationNumber || null,
       email: email || undefined,
-      session,
-      categories,
+      session: assignedSession,
+      categories: assignedCategories,
       photoUrl: uploaded.secure_url,
     });
 
