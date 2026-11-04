@@ -58,6 +58,7 @@ const AdminLiveAuctionView = () => {
   // Stop & Reset Modals state
   const [showStopModal, setShowStopModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [resetCategoryTarget, setResetCategoryTarget] = useState("Batsman");
   const [showStagePreview, setShowStagePreview] = useState(false);
 
   // Manual bid trigger state
@@ -477,18 +478,32 @@ const AdminLiveAuctionView = () => {
 
               {/* 5TH PLAYER SPECIAL RULE BANNER */}
               {isFifthPlayer && (
-                <div className="mb-4 rounded-md border border-amber-400/60 bg-gradient-to-r from-amber-950/70 via-amber-900/40 to-amber-950/70 p-3 text-xs">
-                  <div className="flex items-center gap-2 font-bold text-amber-300">
-                    <FaCoins className="text-amber-400 text-sm" />
-                    5th Player Special Rule Triggered!
+                <div className="mb-4 rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-950/90 via-amber-900/60 to-amber-950/90 p-3.5 text-xs shadow-lg">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-black text-amber-300">
+                      <FaCoins className="text-amber-400 text-sm" />
+                      5th Player Automatic Rule Active!
+                    </div>
+                    {currentPlayer?.status !== "sold" && (
+                      <button
+                        type="button"
+                        onClick={() => sendControlAction("AUTO_ASSIGN_5TH_PLAYER")}
+                        disabled={submittingAction}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-1.5 text-xs font-black text-slate-950 hover:brightness-110 shadow-md cursor-pointer active:scale-95 transition-all"
+                      >
+                        <FaGavel className="text-[10px]" />
+                        Auto-Assign to Remaining Team
+                      </button>
+                    )}
                   </div>
-                  <p className="mt-1 text-[#ffd37f]">
-                    Base price is automatically calculated as the average of <b>Player 3</b> (৳{" "}
+                  <p className="mt-1.5 text-[#ffd37f]">
+                    Base price is calculated as the average of <b>Player 3</b> (৳{" "}
                     {state.player3SoldPrice?.toLocaleString() || "Unsold"}) and <b>Player 4</b> (৳{" "}
                     {state.player4SoldPrice?.toLocaleString() || "Unsold"}) ={" "}
                     <b className="text-white text-sm underline decoration-amber-400 underline-offset-2">
                       ৳ {state.fifthPlayerCalculatedBasePrice?.toLocaleString() || 500}
                     </b>
+                    . The 5th player automatically goes to the remaining 5th team.
                   </p>
                 </div>
               )}
@@ -1241,30 +1256,99 @@ const AdminLiveAuctionView = () => {
                 </div>
               )}
 
-              {/* OPTION 2: FULL RESET TO IDLE */}
-              <div className="rounded-lg border border-red-500/20 bg-[#02121f] p-3 hover:border-red-400/50 transition-all">
+              {/* OPTION 2: RESET BY CATEGORY */}
+              <div className="rounded-lg border border-purple-500/20 bg-[#02121f] p-3 hover:border-purple-400/50 transition-all">
                 <div className="flex items-center justify-between mb-1">
-                  <h4 className="text-xs font-bold text-red-300">
-                    Option 2: Reset Entire Live Session
+                  <h4 className="text-xs font-bold text-purple-300">
+                    Option 2: Reset Specific Category
                   </h4>
-                  <span className="rounded bg-red-400/20 px-2 py-0.5 text-[10px] font-bold text-red-300">
-                    Full Clear
+                  <span className="rounded bg-purple-400/20 px-2 py-0.5 text-[10px] font-bold text-purple-300">
+                    Category Refund
                   </span>
                 </div>
                 <p className="text-[11px] text-[#8b979d] leading-relaxed mb-2.5">
-                  Wipes the active 5-player queue, resets all live auction state, and returns the console to IDLE so you can select and launch a new tier or category.
+                  Resets only players in the selected category to UPCOMING and refunds all money spent on this category back to the respective team purses. All other categories remain completely intact.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={resetCategoryTarget}
+                    onChange={(e) => setResetCategoryTarget(e.target.value)}
+                    className="rounded border border-purple-500/40 bg-[#061e30] px-3 py-1.5 text-xs font-semibold text-purple-200 outline-none focus:border-purple-400"
+                  >
+                    <option value="Batsman">Batsman</option>
+                    <option value="Bowler">Bowler</option>
+                    <option value="ALL ROUNDER">ALL ROUNDER</option>
+                    <option value="Wicket Keeper (Batsman)">Wicket Keeper (Batsman)</option>
+                    <option value="ICON PLAYER">ICON PLAYER</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm(`Are you sure you want to reset all players in category "${resetCategoryTarget}"? Money spent on this category will be refunded to teams.`)) return;
+                      await sendControlAction("RESET", { scope: "CATEGORY", targetCategory: resetCategoryTarget });
+                      setShowResetModal(false);
+                    }}
+                    disabled={submittingAction}
+                    className="flex items-center gap-1.5 rounded bg-purple-900/80 hover:bg-purple-800 border border-purple-500/50 px-3.5 py-1.5 text-xs font-bold text-purple-100 cursor-pointer"
+                  >
+                    <FaRotateLeft className="text-[10px]" />
+                    Reset {resetCategoryTarget} Category
+                  </button>
+                </div>
+              </div>
+
+              {/* OPTION 3: RESET ACTIVE LIVE SESSION */}
+              <div className="rounded-lg border border-amber-500/20 bg-[#02121f] p-3 hover:border-amber-400/50 transition-all">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-xs font-bold text-amber-300">
+                    Option 3: Reset Active Tier Session
+                  </h4>
+                  <span className="rounded bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                    Active Session
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#8b979d] leading-relaxed mb-2.5">
+                  Refunds sold players in the currently loaded 5-player tier, wipes the active queue, and returns the console to IDLE so you can pick or reload a tier.
                 </p>
                 <button
                   type="button"
                   onClick={async () => {
-                    await sendControlAction("RESET", { scope: "FULL" });
+                    await sendControlAction("RESET", { scope: "SESSION" });
+                    setShowResetModal(false);
+                  }}
+                  disabled={submittingAction}
+                  className="flex items-center gap-1.5 rounded bg-[#76511d] px-3.5 py-1.5 text-xs font-bold text-[#f2d590] hover:bg-[#b8872f] hover:text-white cursor-pointer"
+                >
+                  <FaRotateLeft className="text-[10px]" />
+                  Reset Active Session to Idle
+                </button>
+              </div>
+
+              {/* OPTION 4: FULL TOURNAMENT RESET */}
+              <div className="rounded-lg border border-red-500/20 bg-[#02121f] p-3 hover:border-red-400/50 transition-all">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-xs font-bold text-red-300">
+                    Option 4: Reset Entire Tournament Auction
+                  </h4>
+                  <span className="rounded bg-red-400/20 px-2 py-0.5 text-[10px] font-bold text-red-300">
+                    Full Tournament Reset
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#8b979d] leading-relaxed mb-2.5">
+                  Wipes all player sales across ALL tiers and categories, resets all team rosters, and restores all team points back to 10,000 PTS.
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm("⚠️ DANGER: Are you sure you want to completely RESET THE ENTIRE AUCTION? All teams will be refunded to 10,000 PTS and all player assignments will be wiped!")) return;
+                    await sendControlAction("RESET", { scope: "FULL_TOURNAMENT" });
                     setShowResetModal(false);
                   }}
                   disabled={submittingAction}
                   className="flex items-center gap-1.5 rounded bg-red-800 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 cursor-pointer"
                 >
                   <FaRotateLeft className="text-[10px]" />
-                  Full Reset to Idle
+                  Reset Full Tournament (10,000 PTS)
                 </button>
               </div>
             </div>

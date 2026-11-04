@@ -15,7 +15,7 @@ export const POST = async (request) => {
   }
 
   try {
-    const { action, tierId, selectedPlayerIds, customBasePrice, scope, timerSeconds } = await request.json();
+    const { action, tierId, selectedPlayerIds, customBasePrice, scope, timerSeconds, targetCategory } = await request.json();
     await connectToDatabase();
 
     let state = await AuctionState.findOne({ auctionCode: "LIVE" });
@@ -80,7 +80,7 @@ export const POST = async (request) => {
         role: p.playingRole || (Array.isArray(p.categories) && p.categories.length > 0 ? p.categories[0] : (tier.category || "Player")),
         categories: Array.isArray(p.categories) ? p.categories : [tier.category],
         tier: tier.name,
-        basePrice: tier.basePrice || 500,
+        basePrice: p.basePrice || tier.basePrice || 500,
         soldPrice: null,
         soldToTeam: null,
         soldToTeamName: null,
@@ -170,11 +170,72 @@ export const POST = async (request) => {
           state.player3SoldPrice = soldPrice;
         } else if (currIdx === 3) {
           state.player4SoldPrice = soldPrice;
-          if (state.player3SoldPrice) {
-            const avg = calculateFifthPlayerBasePrice(state.player3SoldPrice, soldPrice, state.tierBasePrice);
-            state.fifthPlayerCalculatedBasePrice = avg;
-            if (state.players[4]) {
-              state.players[4].basePrice = avg;
+          const avg = calculateFifthPlayerBasePrice(
+            state.player3SoldPrice,
+            soldPrice,
+            state.tierBasePrice
+          );
+          state.fifthPlayerCalculatedBasePrice = avg;
+          if (state.players[4]) {
+            state.players[4].basePrice = avg;
+          }
+
+          // 5th player automatic assignment rule:
+          // If 4 teams bought the first 4 players in this tier, the 5th player automatically goes to the remaining 5th team at the average price!
+          const soldTeamsInTier = state.players
+            .slice(0, 4)
+            .filter((p) => p.status === "sold" && p.soldToTeam)
+            .map((p) => p.soldToTeam.toString());
+
+          const uniqueSoldTeams = new Set(soldTeamsInTier);
+
+          if (uniqueSoldTeams.size === 4 && state.players[4]) {
+            const allActiveTeams = await Team.find({ status: "active" });
+            const remainingTeam = allActiveTeams.find(
+              (t) => !uniqueSoldTeams.has(t._id.toString())
+            );
+
+            if (remainingTeam) {
+              const player5 = state.players[4];
+              player5.status = "sold";
+              player5.soldPrice = avg;
+              player5.soldToTeam = remainingTeam._id;
+              player5.soldToTeamName = remainingTeam.name;
+
+              // Update Player 5 in MongoDB
+              await Player.findByIdAndUpdate(player5.player, {
+                team: remainingTeam._id,
+                soldPrice: avg,
+                auctionStatus: "sold",
+              });
+
+              // Update Remaining Team in MongoDB
+              await Team.findByIdAndUpdate(remainingTeam._id, {
+                $addToSet: { players: player5.player },
+                $inc: { pointsSpent: avg },
+              });
+
+              state.hammerStatus = "sold";
+              state.status = "completed";
+              state.currentPlayerIndex = 4;
+              state.currentBid = avg;
+              state.currentBidderTeam = remainingTeam._id;
+              state.currentBidderTeamName = remainingTeam.name;
+              state.currentBidderTeamLogo = remainingTeam.logoUrl || null;
+              state.timerEndAt = null;
+
+              await state.save();
+
+              return Response.json({
+                success: true,
+                message: `SOLD to ${winningTeamName} for ৳ ${soldPrice.toLocaleString()}! And 5th Player (${player5.fullName}) automatically assigned to remaining team "${remainingTeam.name}" for ৳ ${avg.toLocaleString()} (Average Rule)! Tier auction complete.`,
+                state,
+                autoAssigned5thPlayer: {
+                  playerName: player5.fullName,
+                  teamName: remainingTeam.name,
+                  price: avg,
+                },
+              });
             }
           }
         }
@@ -251,7 +312,7 @@ export const POST = async (request) => {
       state.currentPlayerIndex = nextIdx;
       state.players[nextIdx].status = "in_auction";
 
-      // 5th player special rule calculation:
+      // 5th player special rule calculation & auto-assignment:
       if (nextIdx === 4) {
         const avg = calculateFifthPlayerBasePrice(
           state.player3SoldPrice,
@@ -260,6 +321,61 @@ export const POST = async (request) => {
         );
         state.fifthPlayerCalculatedBasePrice = avg;
         state.players[4].basePrice = avg;
+
+        const soldTeamsInTier = state.players
+          .slice(0, 4)
+          .filter((p) => p.status === "sold" && p.soldToTeam)
+          .map((p) => p.soldToTeam.toString());
+
+        const uniqueSoldTeams = new Set(soldTeamsInTier);
+
+        if (uniqueSoldTeams.size === 4 && state.players[4].status !== "sold") {
+          const allActiveTeams = await Team.find({ status: "active" });
+          const remainingTeam = allActiveTeams.find(
+            (t) => !uniqueSoldTeams.has(t._id.toString())
+          );
+
+          if (remainingTeam) {
+            const player5 = state.players[4];
+            player5.status = "sold";
+            player5.soldPrice = avg;
+            player5.soldToTeam = remainingTeam._id;
+            player5.soldToTeamName = remainingTeam.name;
+
+            await Player.findByIdAndUpdate(player5.player, {
+              team: remainingTeam._id,
+              soldPrice: avg,
+              auctionStatus: "sold",
+            });
+
+            await Team.findByIdAndUpdate(remainingTeam._id, {
+              $addToSet: { players: player5.player },
+              $inc: { pointsSpent: avg },
+            });
+
+            state.currentPlayerIndex = 4;
+            state.currentBid = avg;
+            state.currentBidderTeam = remainingTeam._id;
+            state.currentBidderTeamName = remainingTeam.name;
+            state.currentBidderTeamLogo = remainingTeam.logoUrl || null;
+            state.hammerStatus = "sold";
+            state.status = "completed";
+            state.timerEndAt = null;
+
+            await state.save();
+
+            return Response.json({
+              success: true,
+              message: `5th Player (${player5.fullName}) automatically assigned to remaining team "${remainingTeam.name}" for ৳ ${avg.toLocaleString()} (Average Rule)! Tier complete.`,
+              state,
+              autoAssigned5thPlayer: {
+                playerName: player5.fullName,
+                teamName: remainingTeam.name,
+                price: avg,
+              },
+            });
+          }
+        }
       }
 
       state.currentBid = 0;
@@ -342,7 +458,76 @@ export const POST = async (request) => {
       });
     }
 
+    // ========================================================
+    // AUTO-ASSIGN 5TH PLAYER TO REMAINING TEAM (AVERAGE RULE)
+    // ========================================================
+    if (action === "AUTO_ASSIGN_5TH_PLAYER") {
+      const avg = calculateFifthPlayerBasePrice(
+        state.player3SoldPrice,
+        state.player4SoldPrice,
+        state.tierBasePrice || 500
+      );
+
+      const soldTeamsInTier = (state.players || [])
+        .slice(0, 4)
+        .filter((p) => p.status === "sold" && p.soldToTeam)
+        .map((p) => p.soldToTeam.toString());
+
+      const uniqueSoldTeams = new Set(soldTeamsInTier);
+      const allActiveTeams = await Team.find({ status: "active" });
+      const remainingTeam = allActiveTeams.find(
+        (t) => !uniqueSoldTeams.has(t._id.toString())
+      );
+
+      if (!remainingTeam) {
+        return Response.json(
+          { error: "Could not find a unique remaining team that hasn't acquired a player in this tier." },
+          { status: 400 }
+        );
+      }
+
+      const player5 = state.players?.[4];
+      if (!player5) {
+        return Response.json({ error: "5th player not found in current tier queue." }, { status: 400 });
+      }
+
+      player5.status = "sold";
+      player5.soldPrice = avg;
+      player5.soldToTeam = remainingTeam._id;
+      player5.soldToTeamName = remainingTeam.name;
+
+      await Player.findByIdAndUpdate(player5.player, {
+        team: remainingTeam._id,
+        soldPrice: avg,
+        auctionStatus: "sold",
+      });
+
+      await Team.findByIdAndUpdate(remainingTeam._id, {
+        $addToSet: { players: player5.player },
+        $inc: { pointsSpent: avg },
+      });
+
+      state.fifthPlayerCalculatedBasePrice = avg;
+      state.currentPlayerIndex = 4;
+      state.currentBid = avg;
+      state.currentBidderTeam = remainingTeam._id;
+      state.currentBidderTeamName = remainingTeam.name;
+      state.currentBidderTeamLogo = remainingTeam.logoUrl || null;
+      state.hammerStatus = "sold";
+      state.status = "completed";
+      state.timerEndAt = null;
+
+      await state.save();
+
+      return Response.json({
+        success: true,
+        message: `5th Player (${player5.fullName}) auto-assigned to ${remainingTeam.name} for ৳ ${avg.toLocaleString()} (Average Rule)! Tier auction completed.`,
+        state,
+      });
+    }
+
     if (action === "RESET") {
+      // 1. Reset Current Player Only
       if (scope === "CURRENT_PLAYER") {
         const currIdx = state.currentPlayerIndex;
         const currentP = state.players[currIdx];
@@ -351,8 +536,15 @@ export const POST = async (request) => {
           if (currentP.status === "sold" && currentP.soldToTeam && currentP.soldPrice) {
             await Team.findByIdAndUpdate(currentP.soldToTeam, {
               $pull: { players: currentP.player },
-              $inc: { pointsSpent: -currentP.soldPrice },
             });
+            const t = await Team.findById(currentP.soldToTeam).populate("players", "soldPrice");
+            if (t) {
+              t.pointsSpent = (t.players || []).reduce(
+                (sum, ply) => sum + (Number(ply.soldPrice) || 0),
+                0
+              );
+              await t.save();
+            }
           }
           currentP.status = "in_auction";
           currentP.soldPrice = null;
@@ -379,12 +571,194 @@ export const POST = async (request) => {
         await state.save();
         return Response.json({
           success: true,
-          message: `Current player's bids have been reset. Bidding reopened!`,
+          message: `Current player's bids have been reset and team balance refunded.`,
           state,
         });
       }
 
-      // Default: Full session reset to idle
+      // 2. Reset a Specific Category (Only refund money spent in that category)
+      if (scope === "CATEGORY") {
+        const catName = targetCategory || state.category;
+        if (!catName) {
+          return Response.json(
+            { error: "Target category name is required to perform category reset." },
+            { status: 400 }
+          );
+        }
+
+        const catQuery = catName === "ICON PLAYER"
+          ? { $or: [{ categories: "ICON PLAYER" }, { tier: "ICON PLAYER" }, { isIcon: true }] }
+          : { $or: [{ categories: catName }, { category: catName }] };
+
+        const categoryPlayers = await Player.find(catQuery);
+        const categoryPlayerIds = categoryPlayers.map((p) => p._id);
+
+        const soldCategoryPlayers = categoryPlayers.filter(
+          (p) => p.auctionStatus === "sold" || p.team || p.soldPrice
+        );
+
+        const affectedTeamIds = new Set();
+        for (const p of soldCategoryPlayers) {
+          if (p.team) affectedTeamIds.add(p.team.toString());
+        }
+
+        // Remove these players from all team rosters
+        if (categoryPlayerIds.length > 0) {
+          await Team.updateMany(
+            {},
+            { $pull: { players: { $in: categoryPlayerIds } } }
+          );
+        }
+
+        // Recalculate pointsSpent for affected teams so only category money is refunded
+        for (const teamId of affectedTeamIds) {
+          const t = await Team.findById(teamId).populate("players", "soldPrice");
+          if (t) {
+            t.pointsSpent = (t.players || []).reduce(
+              (sum, ply) => sum + (Number(ply.soldPrice) || 0),
+              0
+            );
+            await t.save();
+          }
+        }
+
+        // Reset the players in this category
+        if (categoryPlayerIds.length > 0) {
+          await Player.updateMany(
+            { _id: { $in: categoryPlayerIds } },
+            {
+              $set: {
+                team: null,
+                soldPrice: null,
+                auctionStatus: "upcoming",
+              },
+            }
+          );
+        }
+
+        // If active auction session is on this category, reset state to idle
+        if (state.category === catName) {
+          state.status = "idle";
+          state.category = null;
+          state.tierId = null;
+          state.tierName = null;
+          state.tierBasePrice = 0;
+          state.players = [];
+          state.currentPlayerIndex = 0;
+          state.currentBid = 0;
+          state.currentBidderTeam = null;
+          state.currentBidderTeamName = null;
+          state.currentBidderTeamLogo = null;
+          state.bidHistory = [];
+          state.hammerStatus = "waiting";
+          state.timerEndAt = null;
+          state.player3SoldPrice = null;
+          state.player4SoldPrice = null;
+          state.fifthPlayerCalculatedBasePrice = null;
+        }
+
+        await state.save();
+
+        return Response.json({
+          success: true,
+          message: `Category "${catName}" auction reset! ${soldCategoryPlayers.length} player(s) refunded and team balances restored.`,
+          state,
+          refundedCount: soldCategoryPlayers.length,
+        });
+      }
+
+      // 3. Reset Full Tournament / All Auction Sales
+      if (scope === "FULL" || scope === "FULL_TOURNAMENT") {
+        await Player.updateMany(
+          {},
+          {
+            $set: {
+              team: null,
+              soldPrice: null,
+              auctionStatus: "upcoming",
+            },
+          }
+        );
+
+        await Team.updateMany(
+          {},
+          {
+            $set: {
+              players: [],
+              pointsSpent: 0,
+            },
+          }
+        );
+
+        state.status = "idle";
+        state.category = null;
+        state.tierId = null;
+        state.tierName = null;
+        state.tierBasePrice = 0;
+        state.players = [];
+        state.currentPlayerIndex = 0;
+        state.currentBid = 0;
+        state.currentBidderTeam = null;
+        state.currentBidderTeamName = null;
+        state.currentBidderTeamLogo = null;
+        state.bidHistory = [];
+        state.hammerStatus = "waiting";
+        state.timerEndAt = null;
+        state.player3SoldPrice = null;
+        state.player4SoldPrice = null;
+        state.fifthPlayerCalculatedBasePrice = null;
+
+        await state.save();
+
+        return Response.json({
+          success: true,
+          message: "Entire auction reset successfully! All player sales cleared and all team balances restored to 10,000 PTS.",
+          state,
+        });
+      }
+
+      // 4. Reset Current Session
+      const soldInSession = (state.players || []).filter(
+        (p) => p.status === "sold" && p.soldToTeam
+      );
+
+      const affectedTeamIds = new Set();
+      const pIdsToReset = [];
+
+      for (const p of soldInSession) {
+        if (p.soldToTeam) affectedTeamIds.add(p.soldToTeam.toString());
+        if (p.player) pIdsToReset.push(p.player);
+      }
+
+      if (pIdsToReset.length > 0) {
+        await Team.updateMany(
+          {},
+          { $pull: { players: { $in: pIdsToReset } } }
+        );
+
+        for (const teamId of affectedTeamIds) {
+          const t = await Team.findById(teamId).populate("players", "soldPrice");
+          if (t) {
+            t.pointsSpent = (t.players || []).reduce(
+              (sum, ply) => sum + (Number(ply.soldPrice) || 0),
+              0
+            );
+            await t.save();
+          }
+        }
+
+        await Player.updateMany(
+          { _id: { $in: pIdsToReset } },
+          {
+            $set: {
+              team: null,
+              soldPrice: null,
+              auctionStatus: "upcoming",
+            },
+          }
+        );
+      }
+
       state.status = "idle";
       state.category = null;
       state.tierId = null;
@@ -402,8 +776,14 @@ export const POST = async (request) => {
       state.player3SoldPrice = null;
       state.player4SoldPrice = null;
       state.fifthPlayerCalculatedBasePrice = null;
+
       await state.save();
-      return Response.json({ success: true, message: "Auction session completely reset to idle.", state });
+
+      return Response.json({
+        success: true,
+        message: `Current session reset to idle. ${soldInSession.length} player(s) refunded to team purses.`,
+        state,
+      });
     }
 
     return Response.json({ error: "Unknown action." }, { status: 400 });

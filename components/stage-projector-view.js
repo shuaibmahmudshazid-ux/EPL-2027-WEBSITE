@@ -16,6 +16,7 @@ import {
 import PlayerStageRevealCard, { formatBasePrice, formatBroadcastRole } from "./player-stage-reveal-card";
 import AuctionRoundStamp from "./auction-round-stamp";
 import TeamCrest from "./team-crest";
+import CountdownCard from "./countdown-card";
 
 const safeParse = async (response) => {
   try {
@@ -328,6 +329,11 @@ export default function StageProjectorView() {
                 ? "This auction round has concluded. Next tier set starting soon!"
                 : "Auditorium stage display is online and synchronized with the auctioneer console."}
             </p>
+            {state.status !== "completed" && (
+              <div className="max-w-xl mx-auto pt-2 text-left">
+                <CountdownCard className="w-full" />
+              </div>
+            )}
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-5 py-2 font-mono text-xs tracking-widest text-amber-300 uppercase">
               <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
               WAITING FOR NEXT PLAYER ON THE BLOCK

@@ -14,6 +14,7 @@ import {
   FaUserPlus,
   FaUsers,
   FaXmark,
+  FaRotateLeft,
 } from "react-icons/fa6";
 import ExportButtonGroup from "./export-button-group";
 import {
@@ -788,6 +789,73 @@ const AdminAuctionTiersView = () => {
   };
 
   // ============================================
+  // AUCTION RESET HANDLERS (CATEGORY & TOURNAMENT)
+  // ============================================
+  const handleResetCategoryAuction = async (category) => {
+    if (!category || category === "all") return;
+    if (
+      !confirm(
+        `Are you sure you want to RESET the auction for category "${category}"?\n\nThis will:\n• Unsold all players in "${category}"\n• Remove them from team rosters\n• Refund only the points spent in "${category}" back to each team\n• Players from other categories will NOT be affected.`
+      )
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auction/control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "RESET",
+          scope: "CATEGORY",
+          targetCategory: category,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to reset category auction.");
+      await loadData();
+      showSuccess(data.message || `Category "${category}" auction reset! Team balances refunded.`);
+    } catch (err) {
+      setError(err.message || "Failed to reset category auction.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetFullAuction = async () => {
+    if (
+      !confirm(
+        "WARNING: Are you sure you want to RESET THE ENTIRE AUCTION?\n\nThis will:\n• Unsold all players across all categories\n• Clear all teams' acquired rosters\n• Restore all team balances to full initial points (10,000 PTS)\n• Reset the live auction console to idle."
+      )
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auction/control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "RESET",
+          scope: "FULL_TOURNAMENT",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to reset tournament auction.");
+      await loadData();
+      showSuccess(data.message || "Entire auction reset! All team balances restored.");
+    } catch (err) {
+      setError(err.message || "Failed to reset auction.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============================================
   // TIER CRUD HANDLERS
   // ============================================
   const handleSaveTier = async (tierData) => {
@@ -973,6 +1041,16 @@ const AdminAuctionTiersView = () => {
 
             <button
               type="button"
+              onClick={handleResetFullAuction}
+              disabled={loading}
+              className="flex items-center gap-1.5 rounded border border-rose-500/50 bg-rose-950/40 px-3.5 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900/60 hover:text-white transition-all cursor-pointer shadow-md"
+              title="Reset entire tournament auction sales and restore all team balances to 10,000 PTS"
+            >
+              <FaRotateLeft className="text-[10px]" />
+              <span>RESET AUCTION</span>
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 setTierToEdit(null);
                 setIsTierModalOpen(true);
@@ -1142,6 +1220,19 @@ const AdminAuctionTiersView = () => {
                   });
                 }}
               />
+
+              {effectiveCategory !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => handleResetCategoryAuction(effectiveCategory)}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 rounded border border-rose-500/50 bg-rose-950/40 px-3 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-900/60 hover:text-white transition-all cursor-pointer shadow-sm"
+                  title={`Reset all player sales in ${effectiveCategory} and refund money spent to team purses`}
+                >
+                  <FaRotateLeft className="text-[10px]" />
+                  <span>Reset {effectiveCategory} Auction</span>
+                </button>
+              )}
 
               <button
                 type="button"

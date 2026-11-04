@@ -17,6 +17,7 @@ import {
 import SiteNavbar from "./site-navbar";
 import TeamCrest from "./team-crest";
 import AuctionRoundStamp from "./auction-round-stamp";
+import CountdownCard from "./countdown-card";
 import { calculateNextBid, getBidIncrement } from "../lib/auctionRules";
 
 const pad = (val) => String(val).padStart(2, "0");
@@ -502,6 +503,11 @@ export default function LiveAuctionArena() {
             <p className="text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed mb-6 font-medium">
               The live tournament auction draft is currently on standby. The bidding stage, current player under the hammer, and live timers will automatically appear here once started by tournament administrators.
             </p>
+
+            {/* Countdown Clock to 5:30 PM BD Time with Fullscreen Capability */}
+            <div className="w-full max-w-xl mx-auto mb-6 text-left">
+              <CountdownCard className="w-full" />
+            </div>
 
             <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-[#0C1527]/80 px-4 py-2 text-xs font-mono text-slate-400 backdrop-blur-md">
               <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />

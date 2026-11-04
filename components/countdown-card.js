@@ -1,132 +1,615 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
+import Link from "next/link";
+import {
+  FaGavel,
+  FaExpand,
+  FaCompress,
+  FaClock,
+  FaVolumeHigh,
+  FaVolumeXmark,
+  FaTrophy,
+  FaTowerBroadcast,
+  FaArrowRight,
+} from "react-icons/fa6";
 
-const TARGET_DATE = new Date("2026-10-27T00:00:00");
 const pad = (value) => String(value).padStart(2, "0");
-const INITIAL_TIME_LEFT = { days: 17, hours: 21, minutes: 40, seconds: 0 };
 
-const getTimeLeft = () => {
-  const totalSeconds = Math.max(0, Math.floor((TARGET_DATE.getTime() - Date.now()) / 1000));
+/**
+ * Calculates current Bangladesh Standard Time (BST = GMT +6.00).
+ */
+export const getBDNow = () => {
+  const now = new Date();
+  return new Date(now.getTime() + 6 * 3600 * 1000);
+};
+
+/**
+ * Calculates Target Date for Today 5:30 PM BD Time (GMT +6.00).
+ * 17:30 BST = 11:30 UTC.
+ */
+export const getTargetDate = () => {
+  const bdNow = getBDNow();
+  const y = bdNow.getUTCFullYear();
+  const m = bdNow.getUTCMonth();
+  const d = bdNow.getUTCDate();
+  // 17:30:00 BD time (+06:00) is 11:30:00 UTC
+  return new Date(Date.UTC(y, m, d, 11, 30, 0));
+};
+
+/**
+ * Computes remaining time and live status.
+ */
+export const getTimeLeft = () => {
+  const target = getTargetDate();
+  const diff = target.getTime() - Date.now();
+  const totalSeconds = Math.max(0, Math.floor(diff / 1000));
   return {
     days: Math.floor(totalSeconds / 86400),
     hours: Math.floor((totalSeconds % 86400) / 3600),
     minutes: Math.floor((totalSeconds % 3600) / 60),
     seconds: totalSeconds % 60,
+    totalSeconds,
+    isLive: totalSeconds <= 0,
+    targetDate: target,
   };
 };
 
-export default function CountdownCard({ className = "" }) {
-  const [timeLeft, setTimeLeft] = useState(INITIAL_TIME_LEFT);
-  const [mounted, setMounted] = useState(false);
+/**
+ * Formats current BD time as "HH:MM:SS AM/PM (GMT +6.00)"
+ */
+export const getBDTimeString = () => {
+  const bdNow = getBDNow();
+  const h = bdNow.getUTCHours();
+  const m = String(bdNow.getUTCMinutes()).padStart(2, "0");
+  const s = String(bdNow.getUTCSeconds()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${String(h12).padStart(2, "0")}:${m}:${s} ${ampm} (GMT +6.00)`;
+};
 
-  useEffect(() => {
-    setMounted(true);
-    const updateTimeLeft = () => setTimeLeft(getTimeLeft());
-    updateTimeLeft();
-    const timer = setInterval(updateTimeLeft, 1000);
-    return () => clearInterval(timer);
+// Web Audio chime for countdown alerts
+const playChime = (isMuted) => {
+  if (isMuted || typeof window === "undefined") return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.25);
+  } catch {
+    // browser auto-play policy guard
+  }
+};
+
+export default function CountdownCard({ className = "" }) {
+  const [timeLeft, setTimeLeft] = useState(getTimeLeft);
+  const [bdTimeString, setBdTimeString] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+
+  const cardRef = useRef(null);
+
+  // Fullscreen exit handler
+  const exitFullscreen = useCallback(() => {
+    if (typeof document !== "undefined") {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+    setIsFullscreen(false);
   }, []);
 
-  const displayTime = mounted ? timeLeft : INITIAL_TIME_LEFT;
+  // Fullscreen toggle handler
+  const toggleFullscreen = useCallback(() => {
+    if (typeof document === "undefined") return;
+    if (!document.fullscreenElement && !isFullscreen) {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+      setIsFullscreen(true);
+      playChime(isMuted);
+    } else {
+      exitFullscreen();
+    }
+  }, [isFullscreen, isMuted, exitFullscreen]);
+
+  // Initial mount timer
+  useEffect(() => {
+    const mountTimeout = setTimeout(() => {
+      setMounted(true);
+      setBdTimeString(getBDTimeString());
+    }, 0);
+
+    const intervalTimer = setInterval(() => {
+      setTimeLeft(getTimeLeft());
+      setBdTimeString(getBDTimeString());
+    }, 1000);
+
+    return () => {
+      clearTimeout(mountTimeout);
+      clearInterval(intervalTimer);
+    };
+  }, []);
+
+  // Sync fullscreen change events (e.g. user presses native Esc key)
+  useEffect(() => {
+    const handleFsChange = () => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+    };
+  }, []);
+
+  // Keyboard shortcut: Press 'F' to toggle fullscreen, 'ESC' to exit
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (
+        (e.key === "f" || e.key === "F") &&
+        !["INPUT", "TEXTAREA", "SELECT"].includes(e.target?.tagName)
+      ) {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+      if (e.key === "Escape" && isFullscreen) {
+        exitFullscreen();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen, toggleFullscreen, exitFullscreen]);
+
+  // Lock body scroll when in fullscreen overlay
+  useEffect(() => {
+    if (isFullscreen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [isFullscreen]);
+
+  const displayTime = mounted
+    ? timeLeft
+    : { days: 0, hours: 0, minutes: 0, seconds: 0, isLive: false };
 
   return (
-    <div
-      className={`relative overflow-hidden rounded-2xl sm:rounded-3xl border border-amber-500/20 bg-gradient-to-br from-[#111827]/85 via-[#0D1527]/80 to-[#0A0F1D]/90 p-3.5 sm:p-6 md:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.65)] backdrop-blur-2xl transition-all duration-300 hover:border-amber-500/40 ${className}`}
-    >
-      {/* Background ambient lighting */}
-      <div className="absolute -top-16 -left-16 size-44 rounded-full bg-amber-500/20 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-16 -right-16 size-44 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+    <>
+      {/* ======================================================== */}
+      {/* 1. EMBEDDED HUD CARD (NORMAL VIEW)                       */}
+      {/* ======================================================== */}
+      <div
+        ref={cardRef}
+        className={`relative overflow-hidden rounded-2xl sm:rounded-3xl border border-amber-500/25 bg-gradient-to-br from-[#0c1220]/90 via-[#0a0f1d]/90 to-[#070b16]/95 p-3.5 sm:p-5 md:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.65)] backdrop-blur-2xl transition-all duration-300 hover:border-amber-500/40 ${className}`}
+      >
+        {/* Background ambient lighting */}
+        <div className="absolute -top-16 -left-16 size-44 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -right-16 size-44 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
 
-      {/* Header matching reference image: "Live Countdown / Live countdown" */}
-      <div className="relative z-10 flex flex-col items-center text-center mb-4 sm:mb-6">
-        <div className="flex items-center gap-2">
-          <span className="relative flex size-2 sm:size-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-            <span className="relative inline-flex size-2 sm:size-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#F59E0B]" />
-          </span>
-          <span className="text-xs sm:text-sm font-black tracking-wider uppercase text-amber-400">
-            Live Countdown
-          </span>
+        {/* Top Header Row with Status & Fullscreen Button */}
+        <div className="relative z-10 flex items-center justify-between gap-2 mb-3 sm:mb-4">
+          <div className="flex items-center gap-2">
+            <span className="relative flex size-2 sm:size-2.5">
+              <span
+                className={`absolute inline-flex h-full w-full animate-ping rounded-full ${
+                  displayTime.isLive ? "bg-emerald-400" : "bg-amber-400"
+                } opacity-75`}
+              />
+              <span
+                className={`relative inline-flex size-2 sm:size-2.5 rounded-full ${
+                  displayTime.isLive
+                    ? "bg-emerald-400 shadow-[0_0_10px_#10B981]"
+                    : "bg-amber-400 shadow-[0_0_10px_#F59E0B]"
+                }`}
+              />
+            </span>
+            <span
+              className={`text-xs sm:text-sm font-black tracking-wider uppercase ${
+                displayTime.isLive ? "text-emerald-400" : "text-amber-400"
+              }`}
+            >
+              {displayTime.isLive ? "Live Auction Underway" : "Live Auction Countdown"}
+            </span>
+          </div>
+
+          {/* Fullscreen Button */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="group flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-bold text-amber-300 hover:text-white transition-all backdrop-blur-md cursor-pointer hover:border-amber-400 shadow-sm"
+            title="Open Fullscreen Projector / Arena Clock (Press F)"
+          >
+            <FaExpand className="text-[10px] sm:text-xs group-hover:scale-110 transition-transform" />
+            <span className="hidden xs:inline">Fullscreen</span>
+          </button>
         </div>
-        <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 mt-0.5">
-          Live tournament countdown
+
+        {/* Subtitle */}
+        <p className="relative z-10 text-[10px] sm:text-[11px] font-medium text-slate-400 mb-3 sm:mb-4 text-center">
+          {displayTime.isLive
+            ? "Official Player Auction draft is currently in progress • Arena is live!"
+            : "Official Player Auction starts today at 5:30 PM BD Time (GMT +6.00)"}
         </p>
+
+        {/* Digits Display */}
+        <div className="relative z-10 flex items-center justify-center gap-1.5 xs:gap-2 sm:gap-3 py-1 sm:py-2">
+          {/* Days */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center min-w-[44px] xs:min-w-[54px] sm:min-w-[68px] h-12 xs:h-14 sm:h-18 rounded-xl sm:rounded-2xl border border-amber-500/30 bg-[#070A12]/85 px-1.5 sm:px-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_15px_rgba(245,158,11,0.08)]">
+              <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 drop-shadow-[0_0_16px_rgba(245,158,11,0.5)] tabular-nums">
+                {pad(displayTime.days)}
+              </span>
+            </div>
+            <span className="mt-1.5 sm:mt-2 text-[8px] xs:text-[9px] sm:text-[10px] font-black uppercase tracking-[1.5px] sm:tracking-[2px] text-slate-400">
+              DAYS
+            </span>
+          </div>
+
+          {/* Separator */}
+          <span className="font-mono text-xl xs:text-2xl sm:text-3xl font-black text-amber-400/80 -mt-5 sm:-mt-6">
+            :
+          </span>
+
+          {/* Hours */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center min-w-[44px] xs:min-w-[54px] sm:min-w-[68px] h-12 xs:h-14 sm:h-18 rounded-xl sm:rounded-2xl border border-amber-500/30 bg-[#070A12]/85 px-1.5 sm:px-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_15px_rgba(245,158,11,0.08)]">
+              <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 drop-shadow-[0_0_16px_rgba(245,158,11,0.5)] tabular-nums">
+                {pad(displayTime.hours)}
+              </span>
+            </div>
+            <span className="mt-1.5 sm:mt-2 text-[8px] xs:text-[9px] sm:text-[10px] font-black uppercase tracking-[1.5px] sm:tracking-[2px] text-slate-400">
+              HOURS
+            </span>
+          </div>
+
+          {/* Separator */}
+          <span className="font-mono text-xl xs:text-2xl sm:text-3xl font-black text-amber-400/80 -mt-5 sm:-mt-6">
+            :
+          </span>
+
+          {/* Minutes */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center min-w-[44px] xs:min-w-[54px] sm:min-w-[68px] h-12 xs:h-14 sm:h-18 rounded-xl sm:rounded-2xl border border-amber-500/30 bg-[#070A12]/85 px-1.5 sm:px-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_15px_rgba(245,158,11,0.08)]">
+              <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 drop-shadow-[0_0_16px_rgba(245,158,11,0.5)] tabular-nums">
+                {pad(displayTime.minutes)}
+              </span>
+            </div>
+            <span className="mt-1.5 sm:mt-2 text-[8px] xs:text-[9px] sm:text-[10px] font-black uppercase tracking-[1.5px] sm:tracking-[2px] text-slate-400">
+              MINUTES
+            </span>
+          </div>
+
+          {/* Separator */}
+          <span className="font-mono text-xl xs:text-2xl sm:text-3xl font-black text-amber-400/80 -mt-5 sm:-mt-6">
+            :
+          </span>
+
+          {/* Seconds */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center min-w-[44px] xs:min-w-[54px] sm:min-w-[68px] h-12 xs:h-14 sm:h-18 rounded-xl sm:rounded-2xl border border-amber-500/30 bg-[#070A12]/85 px-1.5 sm:px-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_15px_rgba(245,158,11,0.08)]">
+              <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 drop-shadow-[0_0_16px_rgba(245,158,11,0.5)] tabular-nums">
+                {pad(displayTime.seconds)}
+              </span>
+            </div>
+            <span className="mt-1.5 sm:mt-2 text-[8px] xs:text-[9px] sm:text-[10px] font-black uppercase tracking-[1.5px] sm:tracking-[2px] text-slate-400">
+              SECONDS
+            </span>
+          </div>
+        </div>
+
+        {/* Enter Live Auction Button if Live */}
+        {displayTime.isLive && (
+          <div className="relative z-10 mt-3 flex justify-center">
+            <Link
+              href="/auction"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 px-5 py-2 text-xs font-black uppercase tracking-wider text-black shadow-[0_0_20px_rgba(16,185,129,0.6)] hover:scale-105 active:scale-95 transition-all animate-pulse"
+            >
+              <FaGavel className="text-xs" />
+              <span>ENTER LIVE AUCTION ARENA</span>
+            </Link>
+          </div>
+        )}
+
+        {/* Bottom status pill */}
+        <div className="relative z-10 mt-3.5 sm:mt-4 pt-3 border-t border-white/10 flex flex-col xs:flex-row items-center justify-between gap-2">
+          <Link
+            href="/auction"
+            className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] sm:text-xs font-bold text-slate-200 backdrop-blur-md text-center hover:bg-amber-500/20 hover:border-amber-400 transition-all cursor-pointer"
+          >
+            <span
+              className={`size-2 rounded-full ${
+                displayTime.isLive ? "bg-emerald-400" : "bg-amber-400"
+              } animate-pulse shrink-0`}
+            />
+            <span>
+              {displayTime.isLive ? (
+                <>
+                  Status: <strong className="text-emerald-400">AUCTION LIVE NOW</strong> • Click to Enter ➔
+                </>
+              ) : (
+                <>
+                  Auction Time: <strong className="text-amber-400">Today 5:30 PM BD Time (GMT +6.00)</strong>
+                </>
+              )}
+            </span>
+          </Link>
+
+          {/* Fullscreen CTA Hint */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="text-[10px] font-mono text-slate-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            <FaExpand className="text-[9px]" />
+            <span>View Fullscreen (F)</span>
+          </button>
+        </div>
       </div>
 
-      {/* Digits Display - matching exact reference image with colons */}
-      <div className="relative z-10 flex items-center justify-center gap-1.5 xs:gap-2 sm:gap-3 py-1 sm:py-2">
-        {/* Days */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center justify-center min-w-[42px] xs:min-w-[52px] sm:min-w-[68px] h-12 xs:h-14 sm:h-18 rounded-xl sm:rounded-2xl border border-amber-500/30 bg-[#070A12]/85 px-1.5 sm:px-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_15px_rgba(245,158,11,0.08)]">
-            <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 drop-shadow-[0_0_16px_rgba(245,158,11,0.5)] tabular-nums">
-              {pad(displayTime.days)}
-            </span>
-          </div>
-          <span className="mt-1.5 sm:mt-2 text-[8px] xs:text-[9px] sm:text-[10px] font-black uppercase tracking-[1.5px] sm:tracking-[2px] text-slate-400">
-            DAYS
-          </span>
-        </div>
+      {/* ======================================================== */}
+      {/* 2. CINEMATIC FULLSCREEN AUCTION CLOCK (PORTAL OVERLAY)   */}
+      {/* ======================================================== */}
+      {mounted &&
+        isFullscreen &&
+        createPortal(
+          <div className="fixed inset-0 z-[999999] flex flex-col justify-between bg-[#010714] text-white selection:bg-[#F59E0B] selection:text-black overflow-y-auto min-h-screen">
+            {/* Dramatic Stadium Night Lighting Background */}
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+              <div className="absolute -top-40 left-1/4 size-[700px] rounded-full bg-amber-500/15 blur-[160px]" />
+              <div className="absolute -bottom-40 right-1/4 size-[700px] rounded-full bg-blue-600/15 blur-[180px]" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[900px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
+              {/* Stadium Scanlines Effect */}
+              <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:100%_4px] pointer-events-none opacity-40" />
+            </div>
 
-        {/* Separator */}
-        <span className="font-mono text-xl xs:text-2xl sm:text-3xl font-black text-amber-400/80 -mt-5 sm:-mt-6">
-          :
-        </span>
+            {/* TOP BAR: BRANDING + LIVE BD TIME + CONTROLS */}
+            <header className="relative z-20 flex flex-wrap items-center justify-between gap-4 p-4 sm:p-6 lg:p-8 border-b border-white/10 backdrop-blur-md bg-black/40">
+              {/* Left Tournament Logo */}
+              <div className="flex items-center gap-3">
+                <div className="size-10 sm:size-12 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/30 to-amber-500/10 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+                  <FaTrophy className="text-xl sm:text-2xl text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-sm sm:text-base font-black tracking-wider uppercase text-white flex items-center gap-2">
+                    <span>ESDM PREMIER LEAGUE 2027</span>
+                    <span className="hidden sm:inline-block rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[9px] font-black text-amber-300">
+                      OFFICIAL DRAFT
+                    </span>
+                  </h2>
+                  <p className="text-[10px] sm:text-xs text-slate-400 font-medium">
+                    Auditorium Stage Screen • Patuakhali Science and Technology University
+                  </p>
+                </div>
+              </div>
 
-        {/* Hours */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center justify-center min-w-[42px] xs:min-w-[52px] sm:min-w-[68px] h-12 xs:h-14 sm:h-18 rounded-xl sm:rounded-2xl border border-amber-500/30 bg-[#070A12]/85 px-1.5 sm:px-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_15px_rgba(245,158,11,0.08)]">
-            <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 drop-shadow-[0_0_16px_rgba(245,158,11,0.5)] tabular-nums">
-              {pad(displayTime.hours)}
-            </span>
-          </div>
-          <span className="mt-1.5 sm:mt-2 text-[8px] xs:text-[9px] sm:text-[10px] font-black uppercase tracking-[1.5px] sm:tracking-[2px] text-slate-400">
-            HOURS
-          </span>
-        </div>
+              {/* Center Real-Time BD Clock */}
+              <div className="hidden md:flex items-center gap-2.5 rounded-full border border-amber-500/30 bg-black/60 px-4 py-1.5 backdrop-blur-xl shadow-inner">
+                <FaClock className="text-amber-400 text-xs animate-spin-slow" />
+                <span className="text-[11px] font-mono font-bold tracking-wider text-slate-300">
+                  CURRENT BD TIME:
+                </span>
+                <span className="font-mono text-xs font-black text-amber-400 tabular-nums">
+                  {bdTimeString || "CALCULATING..."}
+                </span>
+              </div>
 
-        {/* Separator */}
-        <span className="font-mono text-xl xs:text-2xl sm:text-3xl font-black text-amber-400/80 -mt-5 sm:-mt-6">
-          :
-        </span>
+              {/* Right Controls */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Audio Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsMuted(!isMuted)}
+                  className="grid size-9 sm:size-10 place-items-center rounded-full border border-white/20 bg-black/60 text-amber-400 hover:bg-white/10 hover:border-amber-400/50 backdrop-blur-md cursor-pointer transition-all shadow-sm"
+                  title={isMuted ? "Unmute Broadcast Audio" : "Mute Audio"}
+                >
+                  {isMuted ? (
+                    <FaVolumeXmark className="text-xs sm:text-sm" />
+                  ) : (
+                    <FaVolumeHigh className="text-xs sm:text-sm" />
+                  )}
+                </button>
 
-        {/* Minutes */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center justify-center min-w-[42px] xs:min-w-[52px] sm:min-w-[68px] h-12 xs:h-14 sm:h-18 rounded-xl sm:rounded-2xl border border-amber-500/30 bg-[#070A12]/85 px-1.5 sm:px-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_15px_rgba(245,158,11,0.08)]">
-            <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 drop-shadow-[0_0_16px_rgba(245,158,11,0.5)] tabular-nums">
-              {pad(displayTime.minutes)}
-            </span>
-          </div>
-          <span className="mt-1.5 sm:mt-2 text-[8px] xs:text-[9px] sm:text-[10px] font-black uppercase tracking-[1.5px] sm:tracking-[2px] text-slate-400">
-            MINUTES
-          </span>
-        </div>
+                {/* Exit Fullscreen Button */}
+                <button
+                  type="button"
+                  onClick={exitFullscreen}
+                  className="flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/20 hover:bg-amber-500/30 px-3.5 sm:px-4 py-2 text-xs font-black uppercase tracking-wider text-amber-300 hover:text-white backdrop-blur-md cursor-pointer transition-all shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:border-amber-400"
+                  title="Exit Fullscreen (ESC or F)"
+                >
+                  <FaCompress className="text-xs" />
+                  <span>Exit Fullscreen</span>
+                  <span className="hidden sm:inline-block rounded bg-black/50 px-1.5 py-0.5 text-[9px] font-mono text-slate-300">
+                    ESC
+                  </span>
+                </button>
+              </div>
+            </header>
 
-        {/* Separator */}
-        <span className="font-mono text-xl xs:text-2xl sm:text-3xl font-black text-amber-400/80 -mt-5 sm:-mt-6">
-          :
-        </span>
+            {/* MAIN FULLSCREEN PRESENTATION STAGE */}
+            <main className="relative z-10 flex-1 flex flex-col justify-center items-center px-4 py-8 sm:py-12 max-w-6xl mx-auto w-full text-center">
+              {/* Top Animated Status Pill */}
+              <div className="inline-flex items-center gap-2.5 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/25 to-amber-500/15 px-5 sm:px-6 py-2 text-xs sm:text-sm font-black uppercase tracking-widest text-amber-300 shadow-[0_0_35px_rgba(245,158,11,0.25)] mb-6 sm:mb-8 animate-pulse">
+                <span
+                  className={`size-2.5 rounded-full ${
+                    displayTime.isLive ? "bg-emerald-400" : "bg-amber-400"
+                  } animate-ping`}
+                />
+                <FaGavel className="text-amber-400 text-sm" />
+                <span>
+                  {displayTime.isLive
+                    ? "AUCTION IS LIVE NOW • OFFICIAL DRAFT UNDERWAY"
+                    : "LIVE AUCTION COUNTDOWN • TODAY AT 5:30 PM BD TIME"}
+                </span>
+              </div>
 
-        {/* Seconds */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center justify-center min-w-[42px] xs:min-w-[52px] sm:min-w-[68px] h-12 xs:h-14 sm:h-18 rounded-xl sm:rounded-2xl border border-amber-500/30 bg-[#070A12]/85 px-1.5 sm:px-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_15px_rgba(245,158,11,0.08)]">
-            <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 drop-shadow-[0_0_16px_rgba(245,158,11,0.5)] tabular-nums">
-              {pad(displayTime.seconds)}
-            </span>
-          </div>
-          <span className="mt-1.5 sm:mt-2 text-[8px] xs:text-[9px] sm:text-[10px] font-black uppercase tracking-[1.5px] sm:tracking-[2px] text-slate-400">
-            SECONDS
-          </span>
-        </div>
-      </div>
+              {/* Grand Main Headline */}
+              <h1 className="font-sans font-black text-3xl sm:text-5xl md:text-6xl lg:text-7xl uppercase tracking-tight text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.8)] mb-3 sm:mb-4">
+                {displayTime.isLive ? (
+                  <>
+                    THE AUCTION ARENA <br />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 drop-shadow-[0_0_30px_rgba(16,185,129,0.5)]">
+                      IS OFFICIALLY LIVE
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    COUNTDOWN TO <br className="hidden sm:block" />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-amber-200 to-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.4)]">
+                      PLAYER AUCTION
+                    </span>
+                  </>
+                )}
+              </h1>
 
-      {/* Bottom status pill */}
-      <div className="relative z-10 mt-4 sm:mt-5 pt-3 sm:pt-4 border-t border-white/10 flex items-center justify-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-bold text-slate-200 backdrop-blur-md text-center">
-          <span className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
-          <span>Auction Date: <strong className="text-amber-400">Upcoming</strong></span>
-        </div>
-      </div>
-    </div>
+              {/* Subtitle with BD Time target */}
+              <p className="text-sm sm:text-lg md:text-xl text-slate-300 font-medium max-w-2xl mx-auto mb-8 sm:mb-12">
+                {displayTime.isLive ? (
+                  "Teams are assembled and bidding on marquee players is live. Join the bidding floor or watch on the projector screen."
+                ) : (
+                  <>
+                    Official Player Auction draft begins{" "}
+                    <strong className="text-amber-300 font-black">
+                      Today at 5:30 PM BD Time (GMT +6.00)
+                    </strong>
+                    . All franchise captains, team owners, and draft players assemble.
+                  </>
+                )}
+              </p>
+
+              {/* GIANT AUDITORIUM SCOREBOARD DIGITS */}
+              <div className="flex items-center justify-center gap-2 sm:gap-4 md:gap-6 my-2 sm:my-4 w-full">
+                {/* Days */}
+                <div className="flex flex-col items-center flex-1 max-w-[170px]">
+                  <div className="w-full aspect-[4/4.5] flex items-center justify-center rounded-2xl sm:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-2 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
+                    <span className="font-mono text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
+                      {pad(displayTime.days)}
+                    </span>
+                  </div>
+                  <span className="mt-3 text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-[2px] sm:tracking-[3px] text-slate-400">
+                    DAYS
+                  </span>
+                </div>
+
+                {/* Separator */}
+                <span className="font-mono text-3xl sm:text-5xl md:text-6xl font-black text-amber-400/80 -mt-8 sm:-mt-10">
+                  :
+                </span>
+
+                {/* Hours */}
+                <div className="flex flex-col items-center flex-1 max-w-[170px]">
+                  <div className="w-full aspect-[4/4.5] flex items-center justify-center rounded-2xl sm:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-2 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
+                    <span className="font-mono text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
+                      {pad(displayTime.hours)}
+                    </span>
+                  </div>
+                  <span className="mt-3 text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-[2px] sm:tracking-[3px] text-slate-400">
+                    HOURS
+                  </span>
+                </div>
+
+                {/* Separator */}
+                <span className="font-mono text-3xl sm:text-5xl md:text-6xl font-black text-amber-400/80 -mt-8 sm:-mt-10">
+                  :
+                </span>
+
+                {/* Minutes */}
+                <div className="flex flex-col items-center flex-1 max-w-[170px]">
+                  <div className="w-full aspect-[4/4.5] flex items-center justify-center rounded-2xl sm:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-2 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
+                    <span className="font-mono text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
+                      {pad(displayTime.minutes)}
+                    </span>
+                  </div>
+                  <span className="mt-3 text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-[2px] sm:tracking-[3px] text-slate-400">
+                    MINUTES
+                  </span>
+                </div>
+
+                {/* Separator */}
+                <span className="font-mono text-3xl sm:text-5xl md:text-6xl font-black text-amber-400/80 -mt-8 sm:-mt-10">
+                  :
+                </span>
+
+                {/* Seconds */}
+                <div className="flex flex-col items-center flex-1 max-w-[170px]">
+                  <div className="w-full aspect-[4/4.5] flex items-center justify-center rounded-2xl sm:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-2 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
+                    <span className="font-mono text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
+                      {pad(displayTime.seconds)}
+                    </span>
+                  </div>
+                  <span className="mt-3 text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-[2px] sm:tracking-[3px] text-slate-400">
+                    SECONDS
+                  </span>
+                </div>
+              </div>
+
+              {/* ACTION BUTTONS ROW */}
+              <div className="mt-10 sm:mt-12 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+                <Link
+                  href="/auction"
+                  className="flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 px-6 sm:px-8 py-3.5 sm:py-4 text-xs sm:text-sm font-black uppercase tracking-wider text-black shadow-[0_0_30px_rgba(245,158,11,0.6)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                >
+                  <FaGavel className="text-sm sm:text-base" />
+                  <span>
+                    {displayTime.isLive ? "ENTER LIVE AUCTION ARENA NOW" : "OPEN AUCTION ARENA (STANDBY)"}
+                  </span>
+                  <FaArrowRight className="text-xs" />
+                </Link>
+
+                <Link
+                  href="/auction/stage"
+                  className="flex items-center gap-2 rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 sm:px-7 py-3.5 sm:py-4 text-xs sm:text-sm font-black uppercase tracking-wider text-slate-200 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:border-amber-400"
+                >
+                  <FaTowerBroadcast className="text-amber-400 text-sm" />
+                  <span>Auditorium Stage Screen</span>
+                </Link>
+              </div>
+
+              {/* Mobile Time indicator */}
+              <div className="mt-6 md:hidden flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-4 py-1.5 text-xs font-mono text-slate-400">
+                <span>BD Time:</span>
+                <b className="text-amber-400">{bdTimeString || "--:--:--"}</b>
+              </div>
+            </main>
+
+            {/* BOTTOM BAR: TOURNAMENT SPECS & SHORTCUT INFO */}
+            <footer className="relative z-20 flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6 border-t border-white/10 backdrop-blur-md bg-black/40 text-[11px] text-slate-400">
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1.5 text-slate-300 font-bold">
+                  <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                  EPL 2027 Mega Auction Draft
+                </span>
+                <span className="hidden sm:inline">•</span>
+                <span className="hidden sm:inline">6 Franchise Squads</span>
+                <span className="hidden sm:inline">•</span>
+                <span className="hidden sm:inline">100+ Star Players</span>
+                <span className="hidden sm:inline">•</span>
+                <span className="hidden sm:inline">Dynamic Bidding Rules</span>
+              </div>
+
+              <div className="flex items-center gap-4 font-mono text-[10px] sm:text-[11px]">
+                <span>Press <strong>F</strong> or <strong>ESC</strong> to exit fullscreen</span>
+              </div>
+            </footer>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
