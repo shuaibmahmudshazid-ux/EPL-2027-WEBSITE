@@ -22,7 +22,7 @@ export const GET = async () => {
 
   // Fetch all active teams with populated player summaries
   const teams = await Team.find({ status: "active" })
-    .populate("players", "fullName playerId categories soldPrice photoUrl session registrationNumber")
+    .populate("players", "fullName playerId categories playingRole soldPrice photoUrl session registrationNumber tier basePrice")
     .sort({ name: 1 })
     .lean();
 
@@ -30,7 +30,32 @@ export const GET = async () => {
   const tierSoldPlayers = (state.players || []).filter((p) => p.status === "sold" && p.soldToTeam);
 
   const enrichedTeams = teams.map((team) => {
-    const pointsSpent = (team.players || []).reduce(
+    // Combine team.players from DB and any sold players in active tier queue (deduplicated)
+    const existingPlayerIds = new Set((team.players || []).map((p) => p._id?.toString() || p.id?.toString()));
+    const activeTierPurchases = tierSoldPlayers
+      .filter((p) => p.soldToTeam?.toString() === team._id?.toString())
+      .map((p) => ({
+        _id: p.player,
+        fullName: p.fullName,
+        photoUrl: p.photoUrl,
+        categories: Array.isArray(p.categories) && p.categories.length > 0 ? p.categories : [p.category].filter(Boolean),
+        playingRole: p.role || p.category,
+        tier: p.tier,
+        soldPrice: p.soldPrice,
+        playerId: p.playerId,
+        session: p.session,
+        registrationNumber: p.registrationNumber,
+      }));
+
+    const allTeamPlayers = [...(team.players || [])];
+    for (const atp of activeTierPurchases) {
+      if (!existingPlayerIds.has(atp._id?.toString())) {
+        allTeamPlayers.push(atp);
+        existingPlayerIds.add(atp._id?.toString());
+      }
+    }
+
+    const pointsSpent = allTeamPlayers.reduce(
       (sum, p) => sum + (Number(p.soldPrice) || 0),
       0
     );
@@ -47,8 +72,8 @@ export const GET = async () => {
       uniqueKey: team.uniqueKey,
       logoUrl: team.logoUrl,
       managers: team.managers,
-      playerCount: (team.players || []).length,
-      players: team.players || [],
+      playerCount: allTeamPlayers.length,
+      players: allTeamPlayers,
       pointsSpent,
       pointsRemaining,
       totalPoints,

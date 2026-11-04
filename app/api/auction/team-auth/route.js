@@ -15,7 +15,10 @@ export const POST = async (request) => {
 
     const normalizedKey = uniqueKey.trim().toUpperCase();
     const team = await Team.findOne({ uniqueKey: normalizedKey })
-      .populate("players", "soldPrice fullName")
+      .populate(
+        "players",
+        "fullName playerId categories playingRole soldPrice photoUrl session registrationNumber tier basePrice"
+      )
       .lean();
 
     if (!team) {
@@ -40,6 +43,7 @@ export const POST = async (request) => {
         pointsSpent,
         totalPoints,
         playerCount: (team.players || []).length,
+        players: team.players || [],
       },
     });
   } catch (error) {

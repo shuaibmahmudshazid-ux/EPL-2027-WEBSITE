@@ -13,6 +13,10 @@ import {
   FaTowerBroadcast,
   FaCompress,
   FaExpand,
+  FaCheck,
+  FaXmark,
+  FaCoins,
+  FaTrophy,
 } from "react-icons/fa6";
 import SiteNavbar from "./site-navbar";
 import TeamCrest from "./team-crest";
@@ -116,6 +120,149 @@ const playAudioEffect = (type, isMuted) => {
   }
 };
 
+// Real-time Purchased Squad Section for Authenticated Team
+function TeamPurchasedSquadSection({ team, players, title = null }) {
+  if (!team) return null;
+
+  return (
+    <div id="my-purchased-squad" className="mb-8 w-full">
+      <div className="relative rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0e1628]/95 via-[#0a101f]/90 to-[#060a14]/95 p-4 sm:p-6 lg:p-7 shadow-[0_20px_60px_rgba(0,0,0,0.85)] backdrop-blur-2xl">
+        {/* Ambient Glow */}
+        <div className="absolute -top-10 -right-10 size-48 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 -left-10 size-48 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+
+        {/* Section Header */}
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 mb-5 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <TeamCrest
+              name={team.name}
+              logoUrl={team.logoUrl}
+              className="size-11 sm:size-13 shrink-0"
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="size-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <h2 className="font-sans font-black text-base sm:text-xl text-white uppercase tracking-wide">
+                  {title || `${team.name} — PURCHASED SQUAD`}
+                </h2>
+              </div>
+              <p className="text-[11px] sm:text-xs text-slate-400 font-medium mt-0.5">
+                Official Roster • Real-time player acquisitions automatically added after every purchase
+              </p>
+            </div>
+          </div>
+
+          {/* Summary Stats Badges */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <div className="rounded-xl border border-white/10 bg-black/40 px-3 py-1.5 text-center min-w-[70px]">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Players</span>
+              <strong className="text-xs sm:text-sm font-black text-white font-mono">
+                {players.length}
+              </strong>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-black/40 px-3 py-1.5 text-center min-w-[85px]">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Points Spent</span>
+              <strong className="text-xs sm:text-sm font-black text-amber-400 font-mono">
+                {(team.pointsSpent || 0).toLocaleString()} PTS
+              </strong>
+            </div>
+
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 px-3 py-1.5 text-center min-w-[85px]">
+              <span className="block text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Purse Left</span>
+              <strong className="text-xs sm:text-sm font-black text-emerald-300 font-mono">
+                {(team.pointsRemaining || 0).toLocaleString()} PTS
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Purchased Players Grid */}
+        {players.length > 0 ? (
+          <div className="relative z-10 grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
+            {players.map((player, idx) => (
+              <div
+                key={player._id || player.playerId || idx}
+                className="group relative rounded-2xl border border-amber-500/30 bg-gradient-to-b from-[#111c33]/90 to-[#091020]/90 p-3 sm:p-3.5 flex flex-col justify-between hover:border-amber-400/60 hover:-translate-y-1 transition-all duration-300 shadow-lg"
+              >
+                {/* Top card bar: index badge & tier */}
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="rounded-md bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[9px] font-black uppercase text-amber-300 font-mono flex items-center gap-1">
+                    <FaCheck className="text-[8px] text-emerald-400" />
+                    #{idx + 1} ACQUIRED
+                  </span>
+                  {player.tier && (
+                    <span className="rounded bg-white/10 px-2 py-0.5 text-[9px] font-bold text-slate-300 uppercase font-mono">
+                      {player.tier}
+                    </span>
+                  )}
+                </div>
+
+                {/* Middle: Player photo & details */}
+                <div className="flex items-center gap-3 my-1">
+                  {/* Player Photo */}
+                  <div className="relative size-14 sm:size-16 rounded-xl overflow-hidden border border-amber-500/40 bg-[#060a14] shrink-0 shadow">
+                    {player.photoUrl ? (
+                      <Image
+                        src={player.photoUrl}
+                        alt={player.fullName}
+                        fill
+                        unoptimized
+                        className="object-cover object-top group-hover:scale-105 transition-transform"
+                        sizes="64px"
+                      />
+                    ) : (
+                      <div className="size-full flex items-center justify-center bg-amber-500/10 text-amber-400 text-sm font-black">
+                        {player.fullName?.slice(0, 2).toUpperCase() || "PL"}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-sans font-black text-xs sm:text-sm text-white uppercase truncate group-hover:text-amber-300 transition-colors">
+                      {player.fullName}
+                    </h4>
+                    <p className="text-[10px] text-amber-400 font-semibold truncate mt-0.5">
+                      {player.playingRole || (Array.isArray(player.categories) ? player.categories[0] : player.category) || "Player"}
+                    </p>
+                    <p className="text-[9px] text-slate-400 font-mono mt-0.5 truncate">
+                      ID: <span className="text-slate-200">{player.playerId || "—"}</span>
+                      {player.session ? ` • ${player.session}` : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bottom: Purchase price tag */}
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase">PURCHASE PRICE:</span>
+                  <span className="font-mono text-xs sm:text-sm font-black text-amber-400 flex items-center gap-1 drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]">
+                    <FaGavel className="text-[10px]" />
+                    ৳ {Number(player.soldPrice || 0).toLocaleString()} PTS
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Empty State */
+          <div className="relative z-10 py-10 text-center flex flex-col items-center justify-center max-w-md mx-auto">
+            <div className="size-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-2xl mb-3 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+              <FaUserGroup />
+            </div>
+            <h3 className="font-sans font-black text-sm sm:text-base text-white uppercase tracking-wide">
+              NO PLAYERS PURCHASED YET
+            </h3>
+            <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+              Your winning bids will automatically appear here immediately after the hammer falls. Bid on players on stage to build your championship squad!
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function LiveAuctionArena() {
   const [auctionData, setAuctionData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -137,8 +284,11 @@ export default function LiveAuctionArena() {
   const [loginError, setLoginError] = useState("");
   const [bidError, setBidError] = useState("");
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
+  const [inspectTeamSquad, setInspectTeamSquad] = useState(null);
+  const [newlyPurchasedPlayer, setNewlyPurchasedPlayer] = useState(null);
 
   const prevBidRef = useRef(0);
+  const prevPurchasedCountRef = useRef(null);
 
   // Polling live auction state
   const fetchState = useCallback(async () => {
@@ -289,11 +439,90 @@ export default function LiveAuctionArena() {
         name: t.name,
         logoUrl: t.logoUrl || null,
         pointsRemaining: t.pointsRemaining ?? 10000,
+        pointsSpent: t.pointsSpent ?? 0,
         playerCount: t.playerCount || (t.players ? t.players.length : 0),
+        players: t.players || [],
         ...theme,
       };
     });
   }, [auctionData]);
+
+  // Live authenticated team synchronized with real-time auction polling
+  const liveBiddingTeam = useMemo(() => {
+    if (!biddingTeam) return null;
+    const found = (auctionData?.teams || []).find(
+      (t) => t._id?.toString() === biddingTeam._id?.toString()
+    );
+    if (found) {
+      return {
+        ...biddingTeam,
+        ...found,
+        playerCount: found.playerCount || (found.players ? found.players.length : 0),
+        players: found.players || [],
+        pointsRemaining: found.pointsRemaining,
+        pointsSpent: found.pointsSpent,
+      };
+    }
+    return biddingTeam;
+  }, [biddingTeam, auctionData]);
+
+  // Real-time purchased squad for the logged-in team (with optimistic active tier inclusion)
+  const myPurchasedPlayers = useMemo(() => {
+    if (!liveBiddingTeam) return [];
+    const list = [...(liveBiddingTeam.players || [])];
+    const existingIds = new Set(
+      list.map((p) => p._id?.toString() || p.id?.toString() || p.playerId).filter(Boolean)
+    );
+
+    // If active player was just marked sold to this team, ensure immediate appearance
+    if (
+      activePlayer &&
+      (state.hammerStatus || "").toLowerCase() === "sold" &&
+      state.currentBidderTeam &&
+      (state.currentBidderTeam === liveBiddingTeam._id ||
+        state.currentBidderTeam.toString() === liveBiddingTeam._id?.toString())
+    ) {
+      const activeId = activePlayer.playerId || state.players?.[state.currentPlayerIndex]?.player;
+      if (activeId && !existingIds.has(activeId?.toString())) {
+        list.push({
+          _id: activeId,
+          fullName: activePlayer.fullName,
+          photoUrl: activePlayer.photoUrl,
+          categories: [activePlayer.category].filter(Boolean),
+          playingRole: activePlayer.role,
+          soldPrice: state.currentBid || activePlayer.currentBid,
+          playerId: activePlayer.playerId,
+          session: activePlayer.session,
+          registrationNumber: activePlayer.registrationNumber,
+          tier: activePlayer.tier,
+        });
+      }
+    }
+    return list;
+  }, [liveBiddingTeam, activePlayer, state]);
+
+  // Trigger celebration banner when newly purchased player is added
+  useEffect(() => {
+    if (!liveBiddingTeam) return;
+    const currentCount = myPurchasedPlayers.length;
+    if (prevPurchasedCountRef.current !== null && currentCount > prevPurchasedCountRef.current) {
+      const lastPlayer = myPurchasedPlayers[myPurchasedPlayers.length - 1];
+      if (lastPlayer) {
+        const timer = setTimeout(() => {
+          setNewlyPurchasedPlayer(lastPlayer);
+          playAudioEffect("bid", isMuted);
+        }, 0);
+        const hideTimer = setTimeout(() => {
+          setNewlyPurchasedPlayer(null);
+        }, 7000);
+        return () => {
+          clearTimeout(timer);
+          clearTimeout(hideTimer);
+        };
+      }
+    }
+    prevPurchasedCountRef.current = currentCount;
+  }, [myPurchasedPlayers, liveBiddingTeam, isMuted]);
 
   // Winning or leading team details with robust fallback to teamsList
   const winningOrLeadingTeam = useMemo(() => {
@@ -344,7 +573,7 @@ export default function LiveAuctionArena() {
 
   // Place live bid
   const handlePlaceBid = async () => {
-    if (!biddingTeam) {
+    if (!liveBiddingTeam) {
       setShowTeamModal(true);
       return;
     }
@@ -355,8 +584,8 @@ export default function LiveAuctionArena() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          teamId: biddingTeam._id,
-          uniqueKey: biddingTeam.uniqueKey,
+          teamId: liveBiddingTeam._id,
+          uniqueKey: liveBiddingTeam.uniqueKey,
         }),
       });
       const data = await res.json();
@@ -385,20 +614,20 @@ export default function LiveAuctionArena() {
   const isOpeningBid = !state.currentBidderTeam || state.currentBid <= 0;
 
   const isHighestBidder = Boolean(
-    biddingTeam &&
+    liveBiddingTeam &&
     state.currentBidderTeam &&
-    (state.currentBidderTeam === biddingTeam._id || state.currentBidderTeam.toString() === biddingTeam._id?.toString())
+    (state.currentBidderTeam === liveBiddingTeam._id || state.currentBidderTeam.toString() === liveBiddingTeam._id?.toString())
   );
 
   const isTeamTierQuotaReached = useMemo(() => {
-    if (!biddingTeam || !Array.isArray(state.players)) return false;
+    if (!liveBiddingTeam || !Array.isArray(state.players)) return false;
     return state.players.some(
       (p) =>
         p.status === "sold" &&
         p.soldToTeam &&
-        (p.soldToTeam === biddingTeam._id || p.soldToTeam.toString() === biddingTeam._id?.toString())
+        (p.soldToTeam === liveBiddingTeam._id || p.soldToTeam.toString() === liveBiddingTeam._id?.toString())
     );
-  }, [biddingTeam, state.players]);
+  }, [liveBiddingTeam, state.players]);
 
   return (
     <div className={`min-h-screen min-h-[100dvh] bg-[#0A0F1D] text-white flex flex-col justify-between relative overflow-x-hidden ${isFullscreen ? "p-0" : ""}`}>
@@ -459,10 +688,13 @@ export default function LiveAuctionArena() {
               </button>
 
               {/* Franchise Team Login */}
-              {biddingTeam ? (
-                <div className="flex items-center gap-2.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold text-amber-300 shadow-md">
-                  <TeamCrest name={biddingTeam.name} logoUrl={biddingTeam.logoUrl} className="size-6" />
-                  <span className="truncate max-w-[140px] font-extrabold">{biddingTeam.name}</span>
+              {liveBiddingTeam ? (
+                <div className="flex items-center gap-2 sm:gap-2.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 sm:px-3.5 py-1.5 text-xs font-bold text-amber-300 shadow-md">
+                  <TeamCrest name={liveBiddingTeam.name} logoUrl={liveBiddingTeam.logoUrl} className="size-6 shrink-0" />
+                  <span className="truncate max-w-[130px] font-extrabold">{liveBiddingTeam.name}</span>
+                  <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-mono font-black text-amber-300">
+                    {myPurchasedPlayers.length} {myPurchasedPlayers.length === 1 ? "player" : "players"}
+                  </span>
                   <button
                     onClick={handleLogoutTeam}
                     className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer transition-colors"
@@ -515,6 +747,17 @@ export default function LiveAuctionArena() {
             </div>
           </div>
 
+          {/* Real-time Purchased Squad for Authenticated Team on Standby Screen */}
+          {liveBiddingTeam && (
+            <div className="mt-4 mb-2">
+              <TeamPurchasedSquadSection
+                team={liveBiddingTeam}
+                players={myPurchasedPlayers}
+                title={`${liveBiddingTeam.name} — MY PURCHASED SQUAD`}
+              />
+            </div>
+          )}
+
           {/* Teams Registered (Only shows real teams if admin has added them) */}
           <div className="mt-10 mb-8 w-full">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
@@ -522,7 +765,7 @@ export default function LiveAuctionArena() {
                 <span className="size-2.5 rounded-full bg-amber-400 animate-pulse" />
                 <span>PARTICIPATING TEAMS &amp; PURSES {teamsList.length > 0 && `(${teamsList.length})`}</span>
               </h2>
-              <span className="text-[11px] font-mono text-slate-400">Official Franchise Squads</span>
+              <span className="text-[11px] font-mono text-slate-400">Official Franchise Squads • Click team to view squad</span>
             </div>
 
             {teamsList.length > 0 ? (
@@ -530,7 +773,9 @@ export default function LiveAuctionArena() {
                 {teamsList.map((team, idx) => (
                   <div
                     key={team._id || idx}
-                    className={`relative rounded-3xl border-2 ${team.borderClass} bg-gradient-to-b ${team.cardBg} p-5 sm:p-6 text-center backdrop-blur-xl shadow-2xl flex flex-col items-center justify-between min-h-[220px] sm:min-h-[250px] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_45px_rgba(0,0,0,0.7)] group`}
+                    onClick={() => setInspectTeamSquad(team)}
+                    className={`relative rounded-3xl border-2 ${team.borderClass} bg-gradient-to-b ${team.cardBg} p-5 sm:p-6 text-center backdrop-blur-xl shadow-2xl flex flex-col items-center justify-between min-h-[240px] sm:min-h-[270px] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_45px_rgba(0,0,0,0.7)] group cursor-pointer`}
+                    title="Click to view team's purchased squad"
                   >
                     {/* Team Icon in large circle */}
                     <div className="my-2 group-hover:scale-105 transition-transform duration-300">
@@ -538,9 +783,14 @@ export default function LiveAuctionArena() {
                     </div>
 
                     {/* Team Name - Larger & bold typography */}
-                    <h3 className="font-sans font-black text-sm sm:text-base md:text-lg text-white uppercase tracking-tight leading-snug mt-2 text-center w-full px-1 drop-shadow-md">
-                      {team.name}
-                    </h3>
+                    <div className="w-full my-1">
+                      <h3 className="font-sans font-black text-sm sm:text-base md:text-lg text-white uppercase tracking-tight leading-snug text-center drop-shadow-md truncate">
+                        {team.name}
+                      </h3>
+                      <span className="inline-block mt-1 rounded-full bg-amber-500/20 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 uppercase tracking-wide">
+                        {team.playerCount || (team.players ? team.players.length : 0)} Players • View Roster ➔
+                      </span>
+                    </div>
 
                     {/* Purse Section */}
                     <div className="mt-3.5 w-full pt-3 border-t border-white/10">
@@ -632,13 +882,16 @@ export default function LiveAuctionArena() {
               </button>
 
               {/* Team Manager Login / Status */}
-              {biddingTeam ? (
-                <div className="flex items-center gap-2.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold text-amber-300 shadow-md">
-                  <TeamCrest name={biddingTeam.name} logoUrl={biddingTeam.logoUrl} className="size-6" />
-                  <span className="truncate max-w-[140px] font-extrabold">{biddingTeam.name}</span>
+              {liveBiddingTeam ? (
+                <div className="flex items-center gap-2 sm:gap-2.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 sm:px-3.5 py-1.5 text-xs font-bold text-amber-300 shadow-md">
+                  <TeamCrest name={liveBiddingTeam.name} logoUrl={liveBiddingTeam.logoUrl} className="size-6 shrink-0" />
+                  <span className="truncate max-w-[130px] font-extrabold">{liveBiddingTeam.name}</span>
+                  <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-mono font-black text-amber-300">
+                    {myPurchasedPlayers.length} {myPurchasedPlayers.length === 1 ? "player" : "players"}
+                  </span>
                   <button
                     onClick={handleLogoutTeam}
-                    className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer transition-colors"
+                    className="text-slate-400 hover:text-rose-400 ml-0.5 cursor-pointer transition-colors"
                     title="Logout Team"
                   >
                     <FaRightFromBracket className="text-[11px]" />
@@ -656,6 +909,35 @@ export default function LiveAuctionArena() {
               )}
             </div>
           </div>
+
+          {/* Celebratory Banner on Newly Purchased Player */}
+          {newlyPurchasedPlayer && (
+            <div className="mb-5 rounded-2xl border-2 border-emerald-400 bg-gradient-to-r from-emerald-950/90 via-emerald-900/80 to-black p-4 sm:p-5 shadow-[0_0_40px_rgba(16,185,129,0.5)] flex items-center justify-between gap-4 animate-bounce">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="size-11 sm:size-13 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-2xl sm:text-3xl text-emerald-300 shrink-0">
+                  🎉
+                </div>
+                <div>
+                  <span className="inline-block rounded bg-emerald-500 px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-black font-mono">
+                    NEW PLAYER PURCHASED &amp; ADDED TO SQUAD!
+                  </span>
+                  <h4 className="text-base sm:text-xl font-black uppercase text-white mt-0.5">
+                    {newlyPurchasedPlayer.fullName} is now in your roster!
+                  </h4>
+                  <p className="text-xs text-emerald-300 font-mono">
+                    Winning Bid: <strong className="text-white">৳ {Number(newlyPurchasedPlayer.soldPrice || 0).toLocaleString()} PTS</strong> • Added to your squad
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewlyPurchasedPlayer(null)}
+                className="text-slate-400 hover:text-white text-xs px-2.5 py-1.5 rounded-lg bg-white/10 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* ======================================================== */}
           {/* MAIN BROADCAST ARENA: 3-COLUMN MODERN BROADCAST LAYOUT   */}
@@ -966,6 +1248,20 @@ export default function LiveAuctionArena() {
                           <span>{isSubmittingBid ? "Bidding..." : `Place Next Bid (${nextBidAmount?.toLocaleString()} PTS)`}</span>
                         </button>
                       )}
+                      {/* Quick Squad Peek */}
+                      <div className="pt-2 flex items-center justify-between text-[11px] text-slate-400 border-t border-white/5 mt-1">
+                        <span>Squad: <strong className="text-white font-mono">{myPurchasedPlayers.length}</strong> {myPurchasedPlayers.length === 1 ? "player" : "players"} bought</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const el = document.getElementById("my-purchased-squad");
+                            if (el) el.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          className="text-amber-400 hover:text-white font-bold underline cursor-pointer"
+                        >
+                          View My Players ➔
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
@@ -997,34 +1293,42 @@ export default function LiveAuctionArena() {
                     <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
                     <span>TEAM REMAINING PURSES {teamsList.length > 0 && `(${teamsList.length})`}</span>
                   </h3>
-                  <span className="text-[10px] font-mono text-slate-400">Live Balances</span>
+                  <span className="text-[10px] font-mono text-slate-400">Live Balances • Click to View Squad</span>
                 </div>
 
                 {teamsList.length > 0 ? (
                   <div className="space-y-2">
-                    {teamsList.map((team, idx) => (
-                      <div
-                        key={team._id || idx}
-                        className={`flex items-center justify-between p-2.5 rounded-xl border ${team.borderClass || "border-white/10"} bg-gradient-to-r ${team.cardBg || "from-[#0a1220] to-[#050914]"} hover:border-amber-500/40 transition-all shadow-sm`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <TeamCrest name={team.name} logoUrl={team.logoUrl} className="size-8 shrink-0" />
-                          <div className="min-w-0">
-                            <span className="font-extrabold text-xs text-white uppercase truncate block leading-tight">
-                              {team.name}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
-                              {team.playerCount || 0} players bought
+                    {teamsList.map((team, idx) => {
+                      const isMyTeam = liveBiddingTeam && (liveBiddingTeam._id === team._id || liveBiddingTeam._id?.toString() === team._id?.toString());
+                      return (
+                        <div
+                          key={team._id || idx}
+                          onClick={() => setInspectTeamSquad(team)}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border ${team.borderClass || "border-white/10"} ${isMyTeam ? "ring-2 ring-amber-400/60 bg-amber-500/10" : `bg-gradient-to-r ${team.cardBg || "from-[#0a1220] to-[#050914]"}`} hover:border-amber-500/60 transition-all shadow-sm cursor-pointer group`}
+                          title="Click to view team's purchased squad"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <TeamCrest name={team.name} logoUrl={team.logoUrl} className="size-8 shrink-0 group-hover:scale-105 transition-transform" />
+                            <div className="min-w-0">
+                              <span className="font-extrabold text-xs text-white uppercase truncate flex items-center gap-1.5 leading-tight">
+                                {team.name}
+                                {isMyTeam && (
+                                  <span className="text-[9px] font-black text-amber-400 bg-amber-500/20 px-1 rounded">YOU</span>
+                                )}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono block mt-0.5 group-hover:text-amber-300 transition-colors">
+                                {team.playerCount || (team.players ? team.players.length : 0)} players bought • View squad ➔
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <span className="block font-mono text-xs sm:text-sm font-black text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.3)]">
+                              {team.pointsRemaining?.toLocaleString()} PTS
                             </span>
                           </div>
                         </div>
-                        <div className="text-right shrink-0 ml-2">
-                          <span className="block font-mono text-xs sm:text-sm font-black text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.3)]">
-                            {team.pointsRemaining?.toLocaleString()} PTS
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="py-6 text-center text-xs text-slate-500 italic">
@@ -1036,6 +1340,17 @@ export default function LiveAuctionArena() {
             </div>
 
           </div>
+
+          {/* ======================================================== */}
+          {/* SECTION: TEAM'S PURCHASED SQUAD (DYNAMIC ROSTER)          */}
+          {/* ======================================================== */}
+          {liveBiddingTeam && (
+            <TeamPurchasedSquadSection
+              team={liveBiddingTeam}
+              players={myPurchasedPlayers}
+              title={`${liveBiddingTeam.name} — MY PURCHASED SQUAD`}
+            />
+          )}
 
           {/* Bottom Organizer Crest Branding */}
           <div className="py-4 border-t border-white/10 flex items-center justify-center gap-3 text-xs text-slate-400">
@@ -1053,6 +1368,89 @@ export default function LiveAuctionArena() {
           </div>
 
         </main>
+      )}
+
+      {/* Inspect Team Squad Modal */}
+      {inspectTeamSquad && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md"
+          onClick={() => setInspectTeamSquad(null)}
+        >
+          <div
+            className="relative w-full max-w-3xl rounded-3xl border border-amber-500/40 bg-[#0A0F1D] p-5 sm:p-7 shadow-[0_20px_70px_rgba(0,0,0,0.9)] max-h-[90vh] flex flex-col text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <TeamCrest name={inspectTeamSquad.name} logoUrl={inspectTeamSquad.logoUrl} className="size-10 sm:size-12 shrink-0" />
+                <div>
+                  <h3 className="font-sans font-black text-base sm:text-xl text-white uppercase tracking-wide">
+                    {inspectTeamSquad.name} — SQUAD ROSTER
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                    Purse Left: <strong className="text-emerald-400">{inspectTeamSquad.pointsRemaining?.toLocaleString()} PTS</strong> • Spent: <strong className="text-amber-400">{(inspectTeamSquad.pointsSpent || 0).toLocaleString()} PTS</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectTeamSquad(null)}
+                className="size-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <FaXmark className="text-sm" />
+              </button>
+            </div>
+
+            {/* Players List in Modal */}
+            <div className="flex-1 overflow-y-auto my-4 pr-1">
+              {(inspectTeamSquad.players || []).length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {inspectTeamSquad.players.map((p, idx) => (
+                    <div key={p._id || idx} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 flex items-center gap-3 hover:border-amber-500/40 transition-colors">
+                      <div className="relative size-14 rounded-xl overflow-hidden bg-black/50 border border-white/10 shrink-0">
+                        {p.photoUrl ? (
+                          <Image src={p.photoUrl} alt={p.fullName} fill unoptimized className="object-cover object-top" sizes="56px" />
+                        ) : (
+                          <div className="size-full flex items-center justify-center text-xs font-bold text-amber-400 bg-amber-500/10">
+                            {p.fullName?.slice(0, 2).toUpperCase() || "PL"}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="block text-[9px] font-black text-amber-400 font-mono uppercase">#{idx + 1} ACQUIRED</span>
+                        <h4 className="font-sans font-black text-xs sm:text-sm text-white uppercase truncate">{p.fullName}</h4>
+                        <p className="text-[10px] text-slate-400 font-mono truncate">
+                          {p.playingRole || (Array.isArray(p.categories) ? p.categories[0] : p.category) || "Player"}
+                        </p>
+                        <p className="text-xs font-mono font-black text-amber-400 mt-1">
+                          ৳ {Number(p.soldPrice || 0).toLocaleString()} PTS
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center text-xs text-slate-400 italic">
+                  This team has not acquired any players yet.
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-white/10 text-right">
+              <button
+                type="button"
+                onClick={() => setInspectTeamSquad(null)}
+                className="rounded-xl border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-bold text-white hover:bg-white/20 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Team Login Modal */}
