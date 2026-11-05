@@ -221,7 +221,7 @@ export const POST = async (request) => {
               });
 
               state.hammerStatus = "sold";
-              state.status = "completed";
+              state.status = "in_progress";
               state.currentPlayerIndex = 4;
               state.currentBid = avg;
               state.currentBidderTeam = remainingTeam._id;
@@ -364,7 +364,7 @@ export const POST = async (request) => {
             state.currentBidderTeamName = remainingTeam.name;
             state.currentBidderTeamLogo = remainingTeam.logoUrl || null;
             state.hammerStatus = "sold";
-            state.status = "completed";
+            state.status = "in_progress";
             state.timerEndAt = null;
 
             await state.save();
@@ -519,7 +519,7 @@ export const POST = async (request) => {
       state.currentBidderTeamName = remainingTeam.name;
       state.currentBidderTeamLogo = remainingTeam.logoUrl || null;
       state.hammerStatus = "sold";
-      state.status = "completed";
+      state.status = "in_progress";
       state.timerEndAt = null;
 
       await state.save();

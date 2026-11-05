@@ -668,15 +668,26 @@ const AdminLiveAuctionView = () => {
                       </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => sendControlAction("NEXT_PLAYER")}
-                      disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
-                      className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
-                    >
-                      NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
-                      <FaForward />
-                    </button>
+                    {state.currentPlayerIndex === 4 && state.hammerStatus === "sold" ? (
+                      <button
+                        type="button"
+                        onClick={() => sendControlAction("STOP")}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-black text-white cursor-pointer shadow"
+                      >
+                        COMPLETE TIER AUCTION ✓
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => sendControlAction("NEXT_PLAYER")}
+                        disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
+                        className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
+                      >
+                        NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
+                        <FaForward />
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -773,15 +784,26 @@ const AdminLiveAuctionView = () => {
                       </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => sendControlAction("NEXT_PLAYER")}
-                      disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
-                      className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
-                    >
-                      NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
-                      <FaForward />
-                    </button>
+                    {state.currentPlayerIndex === 4 && state.hammerStatus === "sold" ? (
+                      <button
+                        type="button"
+                        onClick={() => sendControlAction("STOP")}
+                        disabled={submittingAction}
+                        className="flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-black text-white cursor-pointer shadow"
+                      >
+                        COMPLETE TIER AUCTION ✓
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => sendControlAction("NEXT_PLAYER")}
+                        disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
+                        className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
+                      >
+                        NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
+                        <FaForward />
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
