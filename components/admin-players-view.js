@@ -9,6 +9,8 @@ import {
   FaTrash,
   FaUpload,
   FaXmark,
+  FaPenToSquare,
+  FaCheck,
 } from "react-icons/fa6";
 import ExportButtonGroup from "./export-button-group";
 import {
@@ -36,14 +38,43 @@ const DetailRow = ({ label, value }) => (
   </div>
 );
 
-const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUpdateTeam, onOpenCropper, onClose }) => {
+const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUpdateTeam, onUpdatePlayerName, onOpenCropper, onClose }) => {
   const [modalTab, setModalTab] = useState("details"); // "details" | "photocard"
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(player.fullName || "");
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState("");
+
   const currentTierId =
     player.auctionTier?._id ||
     (typeof player.auctionTier === "string" ? player.auctionTier : "");
   const currentTeamId =
     player.team?._id ||
     (typeof player.team === "string" ? player.team : "");
+
+  const handleSaveName = async (e) => {
+    e?.preventDefault();
+    const clean = nameInput.trim();
+    if (!clean) {
+      setNameError("Name cannot be empty");
+      return;
+    }
+    if (clean === player.fullName) {
+      setIsEditingName(false);
+      return;
+    }
+
+    try {
+      setSavingName(true);
+      setNameError("");
+      await onUpdatePlayerName(player._id, clean);
+      setIsEditingName(false);
+    } catch (err) {
+      setNameError(err.message || "Failed to update name");
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   return (
     <div
@@ -145,10 +176,64 @@ const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUp
                   )}
                 </div>
 
-                <div>
-                  <h2 className="text-lg font-bold text-white">
-                    {player.fullName}
-                  </h2>
+                <div className="flex-1 min-w-0">
+                  {isEditingName ? (
+                    <form onSubmit={handleSaveName} className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          required
+                          autoFocus
+                          value={nameInput}
+                          onChange={(e) => setNameInput(e.target.value)}
+                          className="rounded-lg border border-amber-500/50 bg-[#02121f] px-2.5 py-1 text-sm font-bold text-white outline-none focus:ring-1 focus:ring-amber-400 w-full max-w-[240px]"
+                          placeholder="Player name"
+                        />
+                        <button
+                          type="submit"
+                          disabled={savingName}
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white transition-colors cursor-pointer disabled:opacity-50"
+                          title="Save Name"
+                        >
+                          <FaCheck className="text-[10px]" />
+                          <span>{savingName ? "..." : "Save"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={savingName}
+                          onClick={() => {
+                            setNameInput(player.fullName || "");
+                            setIsEditingName(false);
+                            setNameError("");
+                          }}
+                          className="rounded-lg bg-white/10 hover:bg-white/20 px-2 py-1 text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      {nameError && (
+                        <p className="text-[10px] text-red-400 font-semibold">{nameError}</p>
+                      )}
+                    </form>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-bold text-white truncate">
+                        {player.fullName}
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNameInput(player.fullName || "");
+                          setIsEditingName(true);
+                          setNameError("");
+                        }}
+                        className="rounded-md p-1 text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                        title="Edit Player Name"
+                      >
+                        <FaPenToSquare className="text-xs" />
+                      </button>
+                    </div>
+                  )}
 
                   <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                     <b
@@ -965,6 +1050,47 @@ const AdminPlayersView = () => {
   };
 
   // =========================
+  // UPDATE PLAYER NAME
+  // =========================
+  const updatePlayerName = async (id, fullName) => {
+    setUpdatingId(id);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/players/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName }),
+      });
+
+      const text = await response.text();
+      const result = text ? JSON.parse(text) : {};
+
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to update player name.");
+      }
+
+      setPlayers((current) =>
+        current.map((player) =>
+          player._id === id ? result.player : player
+        )
+      );
+
+      if (selectedPlayer?._id === id) {
+        setSelectedPlayer(result.player);
+      }
+
+      showSuccess(`Player name updated to "${fullName}" successfully!`);
+      return result.player;
+    } catch (err) {
+      setError(err.message || "Unable to update player name.");
+      throw err;
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // =========================
   // DELETE PLAYER
   // =========================
   const deletePlayer = async (player) => {
@@ -1299,7 +1425,20 @@ const AdminPlayersView = () => {
                   </td>
 
                   <td className="whitespace-nowrap px-2 py-2 font-medium">
-                    {p.fullName}
+                    <div className="flex items-center gap-1.5">
+                      <span>{p.fullName}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPlayer(p);
+                        }}
+                        className="rounded p-1 text-slate-400 hover:text-amber-300 hover:bg-white/10 transition-colors"
+                        title={`Edit ${p.fullName}`}
+                      >
+                        <FaPenToSquare className="text-[10px]" />
+                      </button>
+                    </div>
                   </td>
 
                   <td className="whitespace-nowrap px-2 py-2">
@@ -1480,6 +1619,7 @@ const AdminPlayersView = () => {
           allTeams={allTeams}
           onUpdateTier={updatePlayerTier}
           onUpdateTeam={updatePlayerTeam}
+          onUpdatePlayerName={updatePlayerName}
           onOpenCropper={(p) => setCroppingPlayer(p)}
           onClose={() =>
             setSelectedPlayer(null)

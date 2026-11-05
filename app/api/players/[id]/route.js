@@ -11,9 +11,17 @@ export const PATCH = async (request, { params }) => {
   if (!session) return Response.json({ error: "Not authenticated." }, { status: 401 });
 
   const body = await request.json();
-  const { status, tierId, auctionTier, teamId, soldPrice, categories, category, playingRole, isIcon, photoUrl, basePrice } = body;
+  const { status, tierId, auctionTier, teamId, soldPrice, categories, category, playingRole, isIcon, photoUrl, basePrice, fullName } = body;
 
   const updateFields = {};
+
+  if (fullName !== undefined) {
+    const trimmed = String(fullName).trim();
+    if (!trimmed) {
+      return Response.json({ error: "Player name cannot be empty." }, { status: 400 });
+    }
+    updateFields.fullName = trimmed;
+  }
 
   if (basePrice !== undefined) {
     updateFields.basePrice = Math.max(0, Number(basePrice) || 0);
