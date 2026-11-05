@@ -52,6 +52,29 @@ const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUp
     player.team?._id ||
     (typeof player.team === "string" ? player.team : "");
 
+  const [selectedTeamId, setSelectedTeamId] = useState(currentTeamId || "__unassign");
+  const [soldPriceInput, setSoldPriceInput] = useState(
+    player.soldPrice !== null && player.soldPrice !== undefined
+      ? String(player.soldPrice)
+      : String(player.basePrice || 0)
+  );
+  const [savingTeam, setSavingTeam] = useState(false);
+  const [teamSaveFeedback, setTeamSaveFeedback] = useState("");
+
+  const handleSaveTeamAndPrice = async () => {
+    try {
+      setSavingTeam(true);
+      setTeamSaveFeedback("");
+      await onUpdateTeam(player._id, selectedTeamId, soldPriceInput);
+      setTeamSaveFeedback("Saved successfully!");
+      setTimeout(() => setTeamSaveFeedback(""), 3000);
+    } catch (err) {
+      setTeamSaveFeedback(err.message || "Failed to save team.");
+    } finally {
+      setSavingTeam(false);
+    }
+  };
+
   const handleSaveName = async (e) => {
     e?.preventDefault();
     const clean = nameInput.trim();
@@ -326,24 +349,55 @@ const PlayerDetailModal = ({ player, allTiers, allTeams = [], onUpdateTier, onUp
           </div>
         </div>
 
-        {/* QUICK TEAM ASSIGNMENT IN MODAL */}
-        <div className="mt-3 rounded border border-white/10 bg-[#02121f] p-3">
-          <label className="block text-[11px] font-bold uppercase text-[#8b979d] mb-1">
-            Assign / Change Team (Squad)
+        {/* QUICK TEAM ASSIGNMENT & PRICE IN MODAL */}
+        <div className="mt-3 rounded border border-white/10 bg-[#02121f] p-3 space-y-2">
+          <label className="block text-[11px] font-bold uppercase text-[#8b979d]">
+            Assign / Change Team (Squad) &amp; Sold Price
           </label>
-          <div className="flex gap-2">
-            <select
-              className="flex-1 rounded border border-white/20 bg-[#031827] px-3 py-1.5 text-xs text-white outline-none focus:border-[#d4a84f]"
-              value={currentTeamId || "__unassign"}
-              onChange={(e) => onUpdateTeam(player._id, e.target.value)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] text-[#8b979d] mb-1">Franchise Team</label>
+              <select
+                className="w-full rounded border border-white/20 bg-[#031827] px-3 py-1.5 text-xs text-white outline-none focus:border-[#d4a84f]"
+                value={selectedTeamId}
+                onChange={(e) => setSelectedTeamId(e.target.value)}
+              >
+                <option value="__unassign">Unassigned (Free Agent / No Team)</option>
+                {allTeams.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.name} (Key: {t.uniqueKey})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] text-[#8b979d] mb-1">Purchase / Sold Price (৳)</label>
+              <input
+                type="number"
+                min="0"
+                step="50"
+                disabled={selectedTeamId === "__unassign"}
+                placeholder="0"
+                value={soldPriceInput}
+                onChange={(e) => setSoldPriceInput(e.target.value)}
+                className="w-full rounded border border-white/20 bg-[#031827] px-3 py-1.5 text-xs text-white outline-none focus:border-[#d4a84f] disabled:opacity-40"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            {teamSaveFeedback && (
+              <span className="text-[11px] font-bold text-amber-300">{teamSaveFeedback}</span>
+            )}
+            <button
+              type="button"
+              onClick={handleSaveTeamAndPrice}
+              disabled={savingTeam}
+              className="ml-auto rounded bg-[#b8872f] px-3.5 py-1.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-50 cursor-pointer shadow"
             >
-              <option value="__unassign">Unassigned (Free Agent / No Team)</option>
-              {allTeams.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.name} (Key: {t.uniqueKey})
-                </option>
-              ))}
-            </select>
+              {savingTeam ? "Saving..." : "Save Team & Price"}
+            </button>
           </div>
         </div>
         </>
@@ -1489,7 +1543,18 @@ const AdminPlayersView = () => {
                   </td>
 
                   <td className="whitespace-nowrap px-2 py-2">
-                    {p.team?.name || "Unassigned"}
+                    {p.team?.name ? (
+                      <div>
+                        <span className="font-semibold text-white">{p.team.name}</span>
+                        {p.soldPrice !== null && p.soldPrice !== undefined && (
+                          <span className="block text-[10px] text-amber-300 font-mono">
+                            ৳ {Number(p.soldPrice).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[#8b979d]">Unassigned</span>
+                    )}
                   </td>
 
                   <td className="whitespace-nowrap px-2 py-2">

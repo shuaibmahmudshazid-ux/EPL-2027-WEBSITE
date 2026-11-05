@@ -684,7 +684,7 @@ export default function LiveAuctionArena() {
   const nextBidAmount = useMemo(() => {
     if (!activePlayer) return 0;
     let basePrice = state.tierBasePrice || activePlayer.basePrice || 500;
-    if (state.currentPlayerIndex === 4 && state.fifthPlayerCalculatedBasePrice) {
+    if ((state.currentPlayerIndex === 4 || (state.tierSoldPlayers || []).length === 4) && state.fifthPlayerCalculatedBasePrice) {
       basePrice = state.fifthPlayerCalculatedBasePrice;
     }
     if (!state.currentBidderTeam || state.currentBid <= 0) {
@@ -702,14 +702,19 @@ export default function LiveAuctionArena() {
   );
 
   const isTeamTierQuotaReached = useMemo(() => {
-    if (!liveBiddingTeam || !Array.isArray(state.players)) return false;
+    if (!liveBiddingTeam) return false;
+    const inTierSold = (state.tierSoldPlayers || []).some(
+      (p) => p.soldToTeam && (p.soldToTeam === liveBiddingTeam._id || p.soldToTeam.toString() === liveBiddingTeam._id?.toString())
+    );
+    if (inTierSold) return true;
+    if (!Array.isArray(state.players)) return false;
     return state.players.some(
       (p) =>
         p.status === "sold" &&
         p.soldToTeam &&
         (p.soldToTeam === liveBiddingTeam._id || p.soldToTeam.toString() === liveBiddingTeam._id?.toString())
     );
-  }, [liveBiddingTeam, state.players]);
+  }, [liveBiddingTeam, state.tierSoldPlayers, state.players]);
 
   return (
     <div className={`min-h-screen min-h-[100dvh] bg-[#0A0F1D] text-white flex flex-col justify-between relative overflow-x-hidden ${isFullscreen ? "p-0" : ""}`}>

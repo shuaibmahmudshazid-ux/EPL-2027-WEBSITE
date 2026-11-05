@@ -6,6 +6,13 @@ import { getSession } from "../../../../lib/adminAuth";
 
 export const runtime = "nodejs";
 
+const recalcTeamPoints = async (teamId) => {
+  if (!teamId) return;
+  const teamPlayers = await Player.find({ team: teamId, auctionStatus: "sold" }).lean();
+  const spent = teamPlayers.reduce((sum, p) => sum + (Number(p.soldPrice) || 0), 0);
+  await Team.findByIdAndUpdate(teamId, { pointsSpent: spent });
+};
+
 export const PATCH = async (request, { params }) => {
   const session = await getSession();
   if (!session) return Response.json({ error: "Not authenticated." }, { status: 401 });
@@ -80,6 +87,9 @@ export const PATCH = async (request, { params }) => {
   }
 
   // Handle Team Assignment / Unassignment
+  const prevTeamId = existingPlayer.team ? existingPlayer.team.toString() : null;
+  let newTeamId = null;
+
   if (teamId !== undefined) {
     if (!teamId || teamId === "__unassign" || teamId === "none" || teamId === "__none") {
       if (existingPlayer.team) {
@@ -95,6 +105,7 @@ export const PATCH = async (request, { params }) => {
       if (!targetTeam) {
         return Response.json({ error: "Team not found." }, { status: 404 });
       }
+      newTeamId = targetTeam._id.toString();
       if (existingPlayer.team && existingPlayer.team.toString() !== targetTeam._id.toString()) {
         await Team.findByIdAndUpdate(existingPlayer.team, {
           $pull: { players: existingPlayer._id },
@@ -105,17 +116,26 @@ export const PATCH = async (request, { params }) => {
       });
       updateFields.team = targetTeam._id;
       const finalPrice = soldPrice !== undefined ? Number(soldPrice) : (existingPlayer.soldPrice || existingPlayer.basePrice || 0);
-      updateFields.soldPrice = finalPrice;
+      updateFields.soldPrice = Math.max(0, finalPrice);
       updateFields.auctionStatus = "sold";
     }
   } else if (soldPrice !== undefined && existingPlayer.team) {
-    updateFields.soldPrice = Number(soldPrice);
+    updateFields.soldPrice = Math.max(0, Number(soldPrice) || 0);
   }
 
   const player = await Player.findByIdAndUpdate(id, { $set: updateFields }, { returnDocument: "after" })
     .populate("team", "name logoUrl")
     .populate("auctionTier", "name category basePrice")
     .lean();
+
+  if (prevTeamId) {
+    await recalcTeamPoints(prevTeamId);
+  }
+  if (newTeamId && newTeamId !== prevTeamId) {
+    await recalcTeamPoints(newTeamId);
+  } else if (existingPlayer.team && soldPrice !== undefined) {
+    await recalcTeamPoints(existingPlayer.team);
+  }
 
   return Response.json({ player });
 };

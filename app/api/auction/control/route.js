@@ -110,9 +110,13 @@ export const POST = async (request) => {
       state.hammerStatus = "waiting";
       state.timerSeconds = typeof timerSeconds === "number" && timerSeconds > 0 ? timerSeconds : 20;
       state.timerEndAt = null;
+      state.player1SoldPrice = null;
+      state.player2SoldPrice = null;
       state.player3SoldPrice = null;
       state.player4SoldPrice = null;
       state.fifthPlayerCalculatedBasePrice = null;
+      state.roundNumber = 1;
+      state.tierSoldPlayers = [];
 
       await state.save();
       return Response.json({ success: true, message: `Started ${tier.category} - ${tier.name} auction with ${queue.length} player(s).`, state });
@@ -173,10 +177,32 @@ export const POST = async (request) => {
           $inc: { pointsSpent: soldPrice },
         });
 
-        // Record 3rd and 4th player sold prices for 5th player calculation rule
-        if (currIdx === 2) {
-          state.player3SoldPrice = soldPrice;
-        } else if (currIdx === 3) {
+        // Record in tierSoldPlayers history
+        if (!state.tierSoldPlayers) state.tierSoldPlayers = [];
+        const alreadyInSold = state.tierSoldPlayers.some(
+          (sp) => sp.player?.toString() === currentPlayerInQueue.player?.toString()
+        );
+        if (!alreadyInSold) {
+          state.tierSoldPlayers.push({
+            player: currentPlayerInQueue.player,
+            fullName: currentPlayerInQueue.fullName,
+            playerId: currentPlayerInQueue.playerId,
+            photoUrl: currentPlayerInQueue.photoUrl,
+            category: currentPlayerInQueue.category,
+            role: currentPlayerInQueue.role,
+            tier: currentPlayerInQueue.tier,
+            soldPrice: soldPrice,
+            soldToTeam: winningTeamId,
+            soldToTeamName: winningTeamName,
+            orderIndex: state.tierSoldPlayers.length,
+          });
+        }
+
+        const totalSoldInTier = state.tierSoldPlayers.length;
+        if (totalSoldInTier === 1) state.player1SoldPrice = soldPrice;
+        if (totalSoldInTier === 2) state.player2SoldPrice = soldPrice;
+        if (totalSoldInTier === 3) state.player3SoldPrice = soldPrice;
+        if (totalSoldInTier === 4) {
           state.player4SoldPrice = soldPrice;
           const avg = calculateFifthPlayerBasePrice(
             state.player3SoldPrice,
@@ -190,10 +216,7 @@ export const POST = async (request) => {
 
           // 5th player automatic assignment rule:
           // If 4 teams bought players in this tier and exactly 1 player remains, that player automatically goes to the remaining 5th team at the average price!
-          const soldTeamsInTier = state.players
-            .filter((p) => p.status === "sold" && p.soldToTeam)
-            .map((p) => p.soldToTeam.toString());
-
+          const soldTeamsInTier = state.tierSoldPlayers.map((p) => p.soldToTeam.toString());
           const uniqueSoldTeams = new Set(soldTeamsInTier);
 
           if (uniqueSoldTeams.size === 4) {
@@ -202,10 +225,15 @@ export const POST = async (request) => {
               (t) => !uniqueSoldTeams.has(t._id.toString())
             );
 
-            // Check if player 5 or an unsold player needs auto-assignment
-            let targetPlayerIndex = 4;
-            let targetPlayer = state.players[4];
-            if (!targetPlayer || targetPlayer.status === "sold") {
+            // Check if there is an unsold player to auto-assign
+            let targetPlayerIndex = -1;
+            let targetPlayer = null;
+
+            // Check player at index 4 (or the last player in current queue)
+            if (state.players[4] && state.players[4].status !== "sold") {
+              targetPlayerIndex = 4;
+              targetPlayer = state.players[4];
+            } else {
               const unsoldIdx = state.players.findIndex((p) => p.status === "unsold");
               if (unsoldIdx !== -1) {
                 targetPlayerIndex = unsoldIdx;
@@ -218,6 +246,20 @@ export const POST = async (request) => {
               targetPlayer.soldPrice = avg;
               targetPlayer.soldToTeam = remainingTeam._id;
               targetPlayer.soldToTeamName = remainingTeam.name;
+
+              state.tierSoldPlayers.push({
+                player: targetPlayer.player,
+                fullName: targetPlayer.fullName,
+                playerId: targetPlayer.playerId,
+                photoUrl: targetPlayer.photoUrl,
+                category: targetPlayer.category,
+                role: targetPlayer.role,
+                tier: targetPlayer.tier,
+                soldPrice: avg,
+                soldToTeam: remainingTeam._id,
+                soldToTeamName: remainingTeam.name,
+                orderIndex: state.tierSoldPlayers.length,
+              });
 
               // Update in MongoDB
               await Player.findByIdAndUpdate(targetPlayer.player, {
@@ -234,7 +276,7 @@ export const POST = async (request) => {
 
               state.hammerStatus = "sold";
               state.status = "in_progress";
-              state.currentPlayerIndex = targetPlayerIndex;
+              state.currentPlayerIndex = targetPlayerIndex !== -1 ? targetPlayerIndex : currIdx;
               state.currentBid = avg;
               state.currentBidderTeam = remainingTeam._id;
               state.currentBidderTeamName = remainingTeam.name;
@@ -245,7 +287,7 @@ export const POST = async (request) => {
 
               return Response.json({
                 success: true,
-                message: `SOLD to ${winningTeamName} for ৳ ${soldPrice.toLocaleString()}! And ${targetPlayer.fullName} automatically assigned to remaining team "${remainingTeam.name}" for ৳ ${avg.toLocaleString()} (Average Rule)!`,
+                message: `SOLD to ${winningTeamName} for ৳ ${soldPrice.toLocaleString()}! And 5th player ${targetPlayer.fullName} automatically assigned to remaining team "${remainingTeam.name}" for ৳ ${avg.toLocaleString()} (Average Rule)!`,
                 state,
                 autoAssigned5thPlayer: {
                   playerName: targetPlayer.fullName,
@@ -315,57 +357,62 @@ export const POST = async (request) => {
     if (action === "NEXT_PLAYER") {
       const nextIdx = state.currentPlayerIndex + 1;
 
+      // When the current queue of players finishes:
       if (nextIdx >= state.players.length) {
-        state.status = "completed";
-        state.hammerStatus = "waiting";
-        await state.save();
-        return Response.json({
-          success: true,
-          message: `All players in this tier auction have been completed!`,
-          state,
-        });
-      }
+        const unsoldPlayers = (state.players || []).filter((p) => p.status === "unsold");
 
-      state.currentPlayerIndex = nextIdx;
-      state.players[nextIdx].status = "in_auction";
+        // Case A: No unsold players remain in this set -> Tier complete!
+        if (unsoldPlayers.length === 0) {
+          state.status = "completed";
+          state.hammerStatus = "waiting";
+          state.timerEndAt = null;
+          await state.save();
+          return Response.json({
+            success: true,
+            message: `All players in this tier auction have been completed!`,
+            state,
+          });
+        }
 
-      // 5th player special rule calculation & auto-assignment:
-      if (nextIdx === 4) {
-        const avg = calculateFifthPlayerBasePrice(
-          state.player3SoldPrice,
-          state.player4SoldPrice,
-          state.tierBasePrice
-        );
-        state.fifthPlayerCalculatedBasePrice = avg;
-        state.players[4].basePrice = avg;
-
-        const soldTeamsInTier = state.players
-          .filter((p) => p.status === "sold" && p.soldToTeam)
-          .map((p) => p.soldToTeam.toString());
-
-        const uniqueSoldTeams = new Set(soldTeamsInTier);
-
-        if (uniqueSoldTeams.size === 4) {
+        // Case B: Exactly 1 unsold player remains and 4 teams have bought players -> 5th Player Rule
+        const totalSold = (state.tierSoldPlayers || []).length;
+        if (unsoldPlayers.length === 1 && totalSold === 4) {
+          const soldTeamsInTier = state.tierSoldPlayers.map((p) => p.soldToTeam?.toString()).filter(Boolean);
+          const uniqueSoldTeams = new Set(soldTeamsInTier);
           const allActiveTeams = await Team.find({ status: "active" });
-          const remainingTeam = allActiveTeams.find(
-            (t) => !uniqueSoldTeams.has(t._id.toString())
+          const remainingTeam = allActiveTeams.find((t) => !uniqueSoldTeams.has(t._id.toString()));
+
+          const avg = state.fifthPlayerCalculatedBasePrice || calculateFifthPlayerBasePrice(
+            state.player3SoldPrice,
+            state.player4SoldPrice,
+            state.tierBasePrice
           );
 
-          let targetPlayerIndex = 4;
-          let targetPlayer = state.players[4];
-          if (!targetPlayer || targetPlayer.status === "sold") {
-            const unsoldIdx = state.players.findIndex((p) => p.status === "unsold");
-            if (unsoldIdx !== -1) {
-              targetPlayerIndex = unsoldIdx;
-              targetPlayer = state.players[unsoldIdx];
-            }
-          }
+          const targetPlayer = unsoldPlayers[0];
+          const targetIdx = state.players.findIndex(
+            (p) => p.player?.toString() === targetPlayer.player?.toString()
+          );
 
-          if (remainingTeam && targetPlayer && targetPlayer.status !== "sold") {
+          if (remainingTeam && targetPlayer) {
             targetPlayer.status = "sold";
             targetPlayer.soldPrice = avg;
             targetPlayer.soldToTeam = remainingTeam._id;
             targetPlayer.soldToTeamName = remainingTeam.name;
+
+            if (!state.tierSoldPlayers) state.tierSoldPlayers = [];
+            state.tierSoldPlayers.push({
+              player: targetPlayer.player,
+              fullName: targetPlayer.fullName,
+              playerId: targetPlayer.playerId,
+              photoUrl: targetPlayer.photoUrl,
+              category: targetPlayer.category,
+              role: targetPlayer.role,
+              tier: targetPlayer.tier,
+              soldPrice: avg,
+              soldToTeam: remainingTeam._id,
+              soldToTeamName: remainingTeam.name,
+              orderIndex: 4,
+            });
 
             await Player.findByIdAndUpdate(targetPlayer.player, {
               team: remainingTeam._id,
@@ -378,7 +425,138 @@ export const POST = async (request) => {
               $inc: { pointsSpent: avg },
             });
 
-            state.currentPlayerIndex = targetPlayerIndex;
+            state.currentPlayerIndex = targetIdx !== -1 ? targetIdx : 0;
+            state.currentBid = avg;
+            state.currentBidderTeam = remainingTeam._id;
+            state.currentBidderTeamName = remainingTeam.name;
+            state.currentBidderTeamLogo = remainingTeam.logoUrl || null;
+            state.hammerStatus = "sold";
+            state.status = "in_progress";
+            state.timerEndAt = null;
+
+            await state.save();
+
+            return Response.json({
+              success: true,
+              message: `${targetPlayer.fullName} automatically assigned to remaining team "${remainingTeam.name}" for ৳ ${avg.toLocaleString()} (5th Player Average Rule)! Tier complete.`,
+              state,
+              autoAssigned5thPlayer: {
+                playerName: targetPlayer.fullName,
+                teamName: remainingTeam.name,
+                price: avg,
+              },
+            });
+          }
+        }
+
+        // Case C: Unsold players remain (2 or more) -> ONLY unsold players return for re-auction round!
+        const nextRoundPlayers = unsoldPlayers.map((p, idx) => ({
+          player: p.player,
+          orderIndex: idx,
+          fullName: p.fullName,
+          photoUrl: p.photoUrl,
+          playerId: p.playerId,
+          registrationNumber: p.registrationNumber,
+          session: p.session,
+          category: p.category || state.category,
+          role: p.role,
+          categories: p.categories || [state.category],
+          tier: p.tier || state.tierName,
+          basePrice: p.basePrice || state.tierBasePrice || 500,
+          soldPrice: null,
+          soldToTeam: null,
+          soldToTeamName: null,
+          status: idx === 0 ? "in_auction" : "upcoming",
+        }));
+
+        for (const p of nextRoundPlayers) {
+          await Player.findByIdAndUpdate(p.player, {
+            auctionStatus: p.status,
+            team: null,
+            soldPrice: null,
+          });
+        }
+
+        state.roundNumber = (state.roundNumber || 1) + 1;
+        state.players = nextRoundPlayers;
+        state.currentPlayerIndex = 0;
+        state.currentBid = 0;
+        state.currentBidderTeam = null;
+        state.currentBidderTeamName = null;
+        state.currentBidderTeamLogo = null;
+        state.bidHistory = [];
+        state.hammerStatus = "waiting";
+        state.timerEndAt = null;
+        state.status = "in_progress";
+
+        await state.save();
+
+        return Response.json({
+          success: true,
+          message: `Category round completed. Starting Unsold Re-Auction round with ${nextRoundPlayers.length} unsold player(s)!`,
+          state,
+        });
+      }
+
+      state.currentPlayerIndex = nextIdx;
+      state.players[nextIdx].status = "in_auction";
+
+      // 5th player special rule calculation & auto-assignment check:
+      const totalSoldSoFar = (state.tierSoldPlayers || []).length;
+      if (nextIdx === 4 || totalSoldSoFar === 4) {
+        const avg = calculateFifthPlayerBasePrice(
+          state.player3SoldPrice,
+          state.player4SoldPrice,
+          state.tierBasePrice
+        );
+        state.fifthPlayerCalculatedBasePrice = avg;
+        state.players[nextIdx].basePrice = avg;
+
+        const soldTeamsInTier = (state.tierSoldPlayers || [])
+          .map((p) => p.soldToTeam?.toString())
+          .filter(Boolean);
+
+        const uniqueSoldTeams = new Set(soldTeamsInTier);
+
+        if (uniqueSoldTeams.size === 4) {
+          const allActiveTeams = await Team.find({ status: "active" });
+          const remainingTeam = allActiveTeams.find(
+            (t) => !uniqueSoldTeams.has(t._id.toString())
+          );
+
+          let targetPlayer = state.players[nextIdx];
+          if (remainingTeam && targetPlayer && targetPlayer.status !== "sold") {
+            targetPlayer.status = "sold";
+            targetPlayer.soldPrice = avg;
+            targetPlayer.soldToTeam = remainingTeam._id;
+            targetPlayer.soldToTeamName = remainingTeam.name;
+
+            if (!state.tierSoldPlayers) state.tierSoldPlayers = [];
+            state.tierSoldPlayers.push({
+              player: targetPlayer.player,
+              fullName: targetPlayer.fullName,
+              playerId: targetPlayer.playerId,
+              photoUrl: targetPlayer.photoUrl,
+              category: targetPlayer.category,
+              role: targetPlayer.role,
+              tier: targetPlayer.tier,
+              soldPrice: avg,
+              soldToTeam: remainingTeam._id,
+              soldToTeamName: remainingTeam.name,
+              orderIndex: 4,
+            });
+
+            await Player.findByIdAndUpdate(targetPlayer.player, {
+              team: remainingTeam._id,
+              soldPrice: avg,
+              auctionStatus: "sold",
+            });
+
+            await Team.findByIdAndUpdate(remainingTeam._id, {
+              $addToSet: { players: targetPlayer.player },
+              $inc: { pointsSpent: avg },
+            });
+
             state.currentBid = avg;
             state.currentBidderTeam = remainingTeam._id;
             state.currentBidderTeamName = remainingTeam.name;
@@ -592,26 +770,37 @@ export const POST = async (request) => {
         );
       }
 
-      // Reset unsold players to upcoming in queue and reset in DB
-      for (const p of unsoldPlayers) {
-        p.status = "upcoming";
-        p.soldPrice = null;
-        p.soldToTeam = null;
-        p.soldToTeamName = null;
+      // Build new queue with ONLY unsold players
+      const nextRoundPlayers = unsoldPlayers.map((p, idx) => ({
+        player: p.player,
+        orderIndex: idx,
+        fullName: p.fullName,
+        photoUrl: p.photoUrl,
+        playerId: p.playerId,
+        registrationNumber: p.registrationNumber,
+        session: p.session,
+        category: p.category || state.category,
+        role: p.role,
+        categories: p.categories || [state.category],
+        tier: p.tier || state.tierName,
+        basePrice: p.basePrice || state.tierBasePrice || 500,
+        soldPrice: null,
+        soldToTeam: null,
+        soldToTeamName: null,
+        status: idx === 0 ? "in_auction" : "upcoming",
+      }));
+
+      for (const p of nextRoundPlayers) {
         await Player.findByIdAndUpdate(p.player, {
-          auctionStatus: "upcoming",
+          auctionStatus: p.status,
           team: null,
           soldPrice: null,
         });
       }
 
-      // Find the first reset unsold player's index
-      const firstUnsoldIdx = (state.players || []).findIndex(
-        (p) => unsoldPlayers.some((up) => up.player.toString() === p.player.toString())
-      );
-
-      state.currentPlayerIndex = firstUnsoldIdx !== -1 ? firstUnsoldIdx : 0;
-      state.players[state.currentPlayerIndex].status = "in_auction";
+      state.roundNumber = (state.roundNumber || 1) + 1;
+      state.players = nextRoundPlayers;
+      state.currentPlayerIndex = 0;
       state.status = "in_progress";
       state.hammerStatus = "waiting";
       state.currentBid = 0;
@@ -625,7 +814,7 @@ export const POST = async (request) => {
 
       return Response.json({
         success: true,
-        message: `${unsoldPlayers.length} unsold player(s) returned to live auction round for bidding!`,
+        message: `${nextRoundPlayers.length} unsold player(s) returned to live auction round for bidding!`,
         state,
       });
     }
@@ -649,12 +838,16 @@ export const POST = async (request) => {
         );
       }
 
-      const soldPlayersInTier = (state.players || []).filter(
-        (p) => p.status === "sold" && p.soldToTeam
-      );
-      const soldPrices = soldPlayersInTier
+      // Collect sold prices from tier history or current queue
+      let soldPrices = (state.tierSoldPlayers || [])
         .map((p) => p.soldPrice)
         .filter((price) => typeof price === "number" && price > 0);
+
+      if (soldPrices.length === 0) {
+        soldPrices = (state.players || [])
+          .filter((p) => p.status === "sold" && p.soldPrice > 0)
+          .map((p) => p.soldPrice);
+      }
 
       // Rule: price = ((Player 1 + Player 2 + Player 3) / 3)
       const lotteryPrice = calculateLotteryPlayerPrice(
@@ -662,7 +855,13 @@ export const POST = async (request) => {
         state.tierBasePrice || 500
       );
 
-      const soldTeamIds = new Set(soldPlayersInTier.map((p) => p.soldToTeam.toString()));
+      const soldTeamIds = new Set(
+        [
+          ...(state.tierSoldPlayers || []).map((p) => p.soldToTeam?.toString()),
+          ...(state.players || []).filter((p) => p.status === "sold" && p.soldToTeam).map((p) => p.soldToTeam.toString()),
+        ].filter(Boolean)
+      );
+
       const allActiveTeams = await Team.find({ status: "active" });
       const remainingTeams = allActiveTeams.filter(
         (t) => !soldTeamIds.has(t._id.toString())
@@ -706,6 +905,8 @@ export const POST = async (request) => {
         ];
       }
 
+      if (!state.tierSoldPlayers) state.tierSoldPlayers = [];
+
       // Commit the 2 lottery sales to database and queue
       for (const { playerObj, teamObj } of assignments) {
         if (!playerObj || !teamObj) continue;
@@ -714,6 +915,20 @@ export const POST = async (request) => {
         playerObj.soldPrice = lotteryPrice;
         playerObj.soldToTeam = teamObj._id;
         playerObj.soldToTeamName = teamObj.name;
+
+        state.tierSoldPlayers.push({
+          player: playerObj.player,
+          fullName: playerObj.fullName,
+          playerId: playerObj.playerId,
+          photoUrl: playerObj.photoUrl,
+          category: playerObj.category,
+          role: playerObj.role,
+          tier: playerObj.tier,
+          soldPrice: lotteryPrice,
+          soldToTeam: teamObj._id,
+          soldToTeamName: teamObj.name,
+          orderIndex: state.tierSoldPlayers.length,
+        });
 
         await Player.findByIdAndUpdate(playerObj.player, {
           team: teamObj._id,
@@ -733,7 +948,7 @@ export const POST = async (request) => {
         (p) => p.player.toString() === lastAssigned.playerObj.player.toString()
       );
 
-      state.currentPlayerIndex = targetIdx !== -1 ? targetIdx : 4;
+      state.currentPlayerIndex = targetIdx !== -1 ? targetIdx : 0;
       state.currentBid = lotteryPrice;
       state.currentBidderTeam = lastAssigned.teamObj._id;
       state.currentBidderTeamName = lastAssigned.teamObj.name;

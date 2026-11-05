@@ -271,7 +271,8 @@ const AdminLiveAuctionView = () => {
   const teams = auctionData?.teams || [];
   const currentQueue = state.players || [];
   const currentPlayer = currentQueue[state.currentPlayerIndex] || null;
-  const isFifthPlayer = state.currentPlayerIndex === 4;
+  const totalSoldInTier = (state.tierSoldPlayers || []).length;
+  const isFifthPlayer = state.currentPlayerIndex === 4 || totalSoldInTier === 4;
 
   const currentBasePrice = isFifthPlayer && state.fifthPlayerCalculatedBasePrice
     ? state.fifthPlayerCalculatedBasePrice
@@ -491,8 +492,9 @@ const AdminLiveAuctionView = () => {
               )}
 
               {/* 2 UNSOLD PLAYERS SPECIAL RULE BANNER (Re-Auction or Lottery) */}
-              {currentQueue.filter((p) => p.status === "unsold").length === 2 &&
-                currentQueue.filter((p) => p.status === "sold").length === 3 && (
+              {((currentQueue.filter((p) => p.status === "unsold").length === 2 &&
+                (totalSoldInTier === 3 || currentQueue.filter((p) => p.status === "sold").length === 3)) ||
+                (currentQueue.length === 2 && totalSoldInTier === 3)) && (
                   <div className="mb-4 rounded-xl border-2 border-purple-400/80 bg-gradient-to-r from-purple-950/95 via-indigo-950/90 to-purple-950/95 p-4 text-xs shadow-2xl">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5 font-black text-purple-200 text-sm">
@@ -515,9 +517,12 @@ const AdminLiveAuctionView = () => {
                           type="button"
                           onClick={() => {
                             // Prepare remaining 2 teams and 2 unsold players for lottery
-                            const unsold = currentQueue.filter((p) => p.status === "unsold");
+                            const unsold = currentQueue.filter((p) => p.status === "unsold" || (p.status !== "sold" && p.player));
                             const soldTeamIds = new Set(
-                              currentQueue.filter((p) => p.status === "sold" && p.soldToTeam).map((p) => p.soldToTeam.toString())
+                              [
+                                ...(state.tierSoldPlayers || []).map((p) => p.soldToTeam?.toString()),
+                                ...currentQueue.filter((p) => p.status === "sold" && p.soldToTeam).map((p) => p.soldToTeam.toString()),
+                              ].filter(Boolean)
                             );
                             const remTeams = teams.filter((t) => !soldTeamIds.has(t._id.toString()));
                             setLotteryAssignments([
@@ -540,8 +545,33 @@ const AdminLiveAuctionView = () => {
                   </div>
                 )}
 
+              {/* MORE THAN 2 UNSOLD PLAYERS BANNER */}
+              {currentQueue.filter((p) => p.status === "unsold").length > 2 && (
+                <div className="mb-4 rounded-xl border border-cyan-400/60 bg-gradient-to-r from-cyan-950/90 via-blue-950/80 to-cyan-950/90 p-3.5 text-xs shadow-lg">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-black text-cyan-300">
+                      <FaRotateRight className="text-cyan-400 text-sm animate-spin" />
+                      {currentQueue.filter((p) => p.status === "unsold").length} Players Unsold in Tier
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => sendControlAction("REAUCTION_UNSOLD_PLAYERS")}
+                      disabled={submittingAction}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-3 py-1.5 text-xs font-black text-white hover:brightness-110 shadow-md cursor-pointer active:scale-95 transition-all"
+                    >
+                      <FaRotateRight className="text-[10px]" />
+                      Re-Auction Unsold Players Now
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-cyan-200/90">
+                    Tournament Rule: When category ends with unsold players, only unsold players return to the stage. Normal bidding applies until reaching the 4th and 5th player slots.
+                  </p>
+                </div>
+              )}
+
               {/* 5TH / REMAINING PLAYER SPECIAL RULE BANNER */}
               {((isFifthPlayer && currentPlayer?.status !== "sold") ||
+                (totalSoldInTier === 4 && currentQueue.some((p) => p.status === "unsold" || p.status === "upcoming")) ||
                 (currentQueue.filter((p) => p.status === "sold").length === 4 &&
                   currentQueue.some((p) => p.status === "unsold" || p.status === "upcoming"))) && (
                 <div className="mb-4 rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-950/90 via-amber-900/60 to-amber-950/90 p-3.5 text-xs shadow-lg">
@@ -550,7 +580,7 @@ const AdminLiveAuctionView = () => {
                       <FaCoins className="text-amber-400 text-sm" />
                       5th / Remaining Player Rule Active!
                     </div>
-                    {currentQueue.filter((p) => p.status === "sold").length < 5 && (
+                    {totalSoldInTier < 5 && currentQueue.some((p) => p.status !== "sold") && (
                       <button
                         type="button"
                         onClick={() => sendControlAction("AUTO_ASSIGN_5TH_PLAYER")}
@@ -718,7 +748,7 @@ const AdminLiveAuctionView = () => {
                       </button>
                     </div>
 
-                    {state.currentPlayerIndex === 4 && state.hammerStatus === "sold" ? (
+                    {totalSoldInTier >= 5 || (state.currentPlayerIndex === currentQueue.length - 1 && currentQueue.filter((p) => p.status === "unsold").length === 0 && (state.hammerStatus === "sold" || state.status === "completed")) ? (
                       <button
                         type="button"
                         onClick={() => sendControlAction("STOP")}
@@ -734,7 +764,9 @@ const AdminLiveAuctionView = () => {
                         disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
                         className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
                       >
-                        NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
+                        {state.currentPlayerIndex === currentQueue.length - 1 && currentQueue.filter((p) => p.status === "unsold").length > 0
+                          ? `START UNSOLD ROUND (${currentQueue.filter((p) => p.status === "unsold").length} Players) ➔`
+                          : `NEXT PLAYER (${state.currentPlayerIndex + 1}/${currentQueue.length})`}
                         <FaForward />
                       </button>
                     )}
@@ -834,7 +866,7 @@ const AdminLiveAuctionView = () => {
                       </button>
                     </div>
 
-                    {state.currentPlayerIndex === 4 && state.hammerStatus === "sold" ? (
+                    {totalSoldInTier >= 5 || (state.currentPlayerIndex === currentQueue.length - 1 && currentQueue.filter((p) => p.status === "unsold").length === 0 && (state.hammerStatus === "sold" || state.status === "completed")) ? (
                       <button
                         type="button"
                         onClick={() => sendControlAction("STOP")}
@@ -850,7 +882,9 @@ const AdminLiveAuctionView = () => {
                         disabled={submittingAction || (state.hammerStatus !== "sold" && state.hammerStatus !== "unsold")}
                         className="flex items-center gap-1.5 rounded bg-[#b8872f] px-4 py-2 text-xs font-black text-white hover:brightness-110 disabled:opacity-40 cursor-pointer shadow"
                       >
-                        NEXT PLAYER ({state.currentPlayerIndex + 1}/{currentQueue.length})
+                        {state.currentPlayerIndex === currentQueue.length - 1 && currentQueue.filter((p) => p.status === "unsold").length > 0
+                          ? `START UNSOLD ROUND (${currentQueue.filter((p) => p.status === "unsold").length} Players) ➔`
+                          : `NEXT PLAYER (${state.currentPlayerIndex + 1}/${currentQueue.length})`}
                         <FaForward />
                       </button>
                     )}
@@ -923,13 +957,21 @@ const AdminLiveAuctionView = () => {
 
             {/* 5-PLAYER QUEUE LIST */}
             <div className="rounded-lg border border-white/15 bg-[#031827] p-4">
-              <h4 className="text-xs font-bold uppercase text-[#d4a84f] tracking-wider mb-2 flex items-center gap-2">
-                <FaLayerGroup />
-                {state.tierName} Queue ({currentQueue.length} Players)
+              <h4 className="text-xs font-bold uppercase text-[#d4a84f] tracking-wider mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <FaLayerGroup />
+                  {state.tierName} Queue ({currentQueue.length} Players)
+                </span>
+                {(state.roundNumber > 1 || (state.tierSoldPlayers && state.tierSoldPlayers.length > 0 && currentQueue.length < 5)) && (
+                  <span className="rounded bg-purple-500/20 border border-purple-400/40 px-2 py-0.5 text-[10px] font-bold text-purple-300">
+                    🔄 Unsold Re-Auction Round {state.roundNumber > 1 ? `#${state.roundNumber}` : ""}
+                  </span>
+                )}
               </h4>
               <div className="space-y-1.5">
                 {currentQueue.map((item, idx) => {
                   const isCurrent = idx === state.currentPlayerIndex;
+                  const overallPos = totalSoldInTier + idx + 1;
                   return (
                     <div
                       key={item.player || idx}
@@ -959,7 +1001,12 @@ const AdminLiveAuctionView = () => {
                         <div>
                           <p className="font-bold text-white flex items-center gap-1.5">
                             {item.fullName}
-                            {idx === 4 && (
+                            {overallPos === 4 && (
+                              <span className="rounded bg-blue-500/20 border border-blue-400/40 px-1 py-0.2 text-[9px] font-bold text-blue-300">
+                                4th Player (Bidding)
+                              </span>
+                            )}
+                            {(overallPos === 5 || idx === 4) && (
                               <span className="rounded bg-amber-400/20 px-1 py-0.2 text-[9px] font-bold text-amber-300">
                                 5th (Avg P3 &amp; P4)
                               </span>

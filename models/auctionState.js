@@ -63,9 +63,30 @@ const auctionStateSchema = new mongoose.Schema(
     },
     timerSeconds: { type: Number, default: 15 },
     timerEndAt: { type: Date, default: null },
+    player1SoldPrice: { type: Number, default: null },
+    player2SoldPrice: { type: Number, default: null },
     player3SoldPrice: { type: Number, default: null },
     player4SoldPrice: { type: Number, default: null },
     fifthPlayerCalculatedBasePrice: { type: Number, default: null },
+    roundNumber: { type: Number, default: 1 },
+    tierSoldPlayers: {
+      type: [
+        {
+          player: { type: mongoose.Schema.Types.ObjectId, ref: "Player" },
+          fullName: { type: String },
+          playerId: { type: String },
+          photoUrl: { type: String, default: null },
+          category: { type: String },
+          role: { type: String },
+          tier: { type: String },
+          soldPrice: { type: Number },
+          soldToTeam: { type: mongoose.Schema.Types.ObjectId, ref: "Team" },
+          soldToTeamName: { type: String },
+          orderIndex: { type: Number, default: 0 },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
