@@ -90,7 +90,7 @@ export const PATCH = async (request, { params }) => {
 
   const { id } = await params;
   const body = await request.json();
-  const { action, playerId, soldPrice, name, status, managers, logoUrl } = body;
+  const { action, playerId, soldPrice, name, status, managers, logoUrl, uniqueKey, points } = body;
 
   await connectToDatabase();
   const team = await Team.findById(id);
@@ -232,8 +232,36 @@ export const PATCH = async (request, { params }) => {
     });
   }
 
-  if (name) team.name = name.trim();
-  if (status && ["active", "inactive"].includes(status)) team.status = status;
+  if (name && name.trim()) {
+    const cleanName = name.trim();
+    if (cleanName !== team.name) {
+      const existingName = await Team.findOne({ name: cleanName, _id: { $ne: team._id } }).lean();
+      if (existingName) {
+        return Response.json({ error: `Team name "${cleanName}" is already taken.` }, { status: 409 });
+      }
+      team.name = cleanName;
+    }
+  }
+
+  if (uniqueKey && uniqueKey.trim()) {
+    const cleanKey = uniqueKey.trim().toUpperCase();
+    if (cleanKey !== team.uniqueKey) {
+      const existingKey = await Team.findOne({ uniqueKey: cleanKey, _id: { $ne: team._id } }).lean();
+      if (existingKey) {
+        return Response.json({ error: `Unique key "${cleanKey}" is already in use by another team.` }, { status: 409 });
+      }
+      team.uniqueKey = cleanKey;
+    }
+  }
+
+  if (status && ["active", "inactive"].includes(status)) {
+    team.status = status;
+  }
+
+  if (points !== undefined && !isNaN(Number(points))) {
+    team.points = Math.max(0, Number(points));
+  }
+
   if (Array.isArray(managers)) {
     team.managers = managers
       .filter((m) => m && (m.name?.trim() || m.phone?.trim() || m.email?.trim()))
@@ -243,9 +271,23 @@ export const PATCH = async (request, { params }) => {
         email: (m.email || "").trim().toLowerCase(),
       }));
   }
-  if (logoUrl !== undefined) team.logoUrl = logoUrl;
+
+  if (logoUrl !== undefined) {
+    team.logoUrl = logoUrl || null;
+  }
 
   await team.save();
+
+  // Sync to AuctionState
+  await AuctionState.updateMany(
+    { currentBidderTeam: team._id },
+    {
+      $set: {
+        currentBidderTeamName: team.name,
+        currentBidderTeamLogo: team.logoUrl,
+      },
+    }
+  );
 
   const updatedTeam = await Team.findById(team._id)
     .populate("players", "fullName playerId categories soldPrice basePrice photoUrl session auctionStatus tier registrationNumber")

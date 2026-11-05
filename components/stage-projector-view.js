@@ -17,6 +17,7 @@ import PlayerStageRevealCard, { formatBasePrice, formatBroadcastRole } from "./p
 import AuctionRoundStamp from "./auction-round-stamp";
 import TeamCrest from "./team-crest";
 import CountdownCard from "./countdown-card";
+import CodeMoleculeBrand from "./code-molecule-brand";
 
 const safeParse = async (response) => {
   try {
@@ -431,6 +432,7 @@ export default function StageProjectorView() {
 
                   {currentPlayer.photoUrl ? (
                     <div className="relative z-10 overflow-hidden rounded-3xl border-4 border-[#d4a84f] bg-[#02101b] p-1 shadow-[0_20px_60px_rgba(0,0,0,0.95)]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={currentPlayer.photoUrl}
                         alt={currentPlayer.fullName}
@@ -500,22 +502,10 @@ export default function StageProjectorView() {
                     </span>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs sm:text-sm text-slate-300">
-                    <span>
-                      Student ID: <b className="text-white font-mono">{currentPlayer.playerId}</b>
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm text-slate-300">
+                    <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-4 py-1 text-xs sm:text-sm font-black uppercase tracking-wider text-amber-300">
+                      {currentPlayer.role || currentPlayer.category || "Cricket"}
                     </span>
-                    <span>•</span>
-                    <span>
-                      Session: <b className="text-white">{currentPlayer.session}</b>
-                    </span>
-                    {currentPlayer.registrationNumber && (
-                      <>
-                        <span>•</span>
-                        <span>
-                          Reg No: <b className="text-white font-mono">{currentPlayer.registrationNumber}</b>
-                        </span>
-                      </>
-                    )}
                   </div>
                 </div>
               </div>
@@ -612,7 +602,7 @@ export default function StageProjectorView() {
             </div>
 
             {/* BOTTOM TICKER */}
-            <div className="border-t border-white/10 pt-3 flex items-center justify-between text-xs text-slate-400">
+            <div className="border-t border-white/10 pt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
               <span className="font-bold text-[#d4a84f]">EPL 2027 OFFICIAL STAGE BROADCAST</span>
               <span className="font-mono">PROJECTOR MODE • 16:9</span>
             </div>
@@ -620,16 +610,20 @@ export default function StageProjectorView() {
         )}
       </div>
 
-      {/* Floating Fullscreen Quick Button */}
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full border border-[#d4a84f]/40 bg-black/85 px-3 py-1.5 text-xs font-bold uppercase text-[#d4a84f] hover:bg-black hover:scale-105 shadow-[0_4px_20px_rgba(0,0,0,0.8)] backdrop-blur-md transition-all cursor-pointer"
-        title={isFullscreen ? "Exit Fullscreen (Press F or Esc)" : "Enter Projector Fullscreen (Press F)"}
-      >
-        {isFullscreen ? <FaCompress className="text-xs" /> : <FaExpand className="text-xs" />}
-        <span>{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
-      </button>
+      {/* Floating Fullscreen Quick Button & Code Molecule Brand */}
+      <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="flex items-center gap-1.5 rounded-full border border-[#d4a84f]/40 bg-black/85 px-3 py-1.5 text-xs font-bold uppercase text-[#d4a84f] hover:bg-black hover:scale-105 shadow-[0_4px_20px_rgba(0,0,0,0.8)] backdrop-blur-md transition-all cursor-pointer"
+          title={isFullscreen ? "Exit Fullscreen (Press F or Esc)" : "Enter Projector Fullscreen (Press F)"}
+        >
+          {isFullscreen ? <FaCompress className="text-xs" /> : <FaExpand className="text-xs" />}
+          <span>{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
+        </button>
+
+        <CodeMoleculeBrand variant="badge" />
+      </div>
     </div>
   );
 }

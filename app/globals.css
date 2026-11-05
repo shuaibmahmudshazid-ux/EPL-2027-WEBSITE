@@ -634,3 +634,97 @@ a {
 .animate-arena-laser {
   animation: arenaLaserBeam 6s ease-in-out infinite;
 }
+
+/* ======================================================== */
+/* CODE MOLECULE LIVE ANIMATED LOGO & BRANDING              */
+/* ======================================================== */
+.live-logo {
+  --c-dark: #18a04a;
+  --c-light: #70d494;
+  --icon-white: #ffffff;
+  --icon-grey: #1a1a1a;
+}
+
+.drops circle {
+  fill: var(--c-dark, #18a04a);
+  animation: cm-drop-flow 2.1s linear infinite;
+}
+.drops circle:nth-child(1) { animation-delay: 0s; }
+.drops circle:nth-child(2) { animation-delay: -0.3s; }
+.drops circle:nth-child(3) { animation-delay: -0.6s; }
+.drops circle:nth-child(4) { animation-delay: -0.9s; }
+.drops circle:nth-child(5) { animation-delay: -1.2s; }
+.drops circle:nth-child(6) { animation-delay: -1.5s; }
+.drops circle:nth-child(7) { animation-delay: -1.8s; }
+
+.drops circle:nth-child(8) { animation-delay: 0s; }
+.drops circle:nth-child(9) { animation-delay: -0.3s; }
+.drops circle:nth-child(10) { animation-delay: -0.6s; }
+.drops circle:nth-child(11) { animation-delay: -0.9s; }
+.drops circle:nth-child(12) { animation-delay: -1.2s; }
+.drops circle:nth-child(13) { animation-delay: -1.5s; }
+.drops circle:nth-child(14) { animation-delay: -1.8s; }
+
+@keyframes cm-drop-flow {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+.fill-line {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: cm-line-pulse 2.4s ease-in-out infinite alternate;
+}
+@keyframes cm-line-pulse {
+  0% { stroke-dashoffset: 100; opacity: 0.35; }
+  100% { stroke-dashoffset: 0; opacity: 0.9; }
+}
+
+.led {
+  animation: cm-led-blink 1.2s infinite ease-in-out;
+}
+.led.l1 { animation-delay: 0s; }
+.led.l2 { animation-delay: 0.4s; }
+.led.l3 { animation-delay: 0.8s; }
+
+@keyframes cm-led-blink {
+  0%, 100% { fill: var(--icon-grey, #1a1a1a); opacity: 0.4; }
+  50% { fill: #18a04a; opacity: 1; filter: drop-shadow(0 0 2px #18a04a); }
+}
+
+.hub .glow {
+  fill: var(--c-dark, #18a04a);
+  opacity: 0.15;
+  animation: cm-hub-glow 2s ease-in-out infinite alternate;
+  transform-origin: 958px 968px;
+}
+@keyframes cm-hub-glow {
+  0% { opacity: 0.1; transform: scale(0.97); }
+  100% { opacity: 0.3; transform: scale(1.04); }
+}
+
+.pop .burst {
+  fill: var(--c-dark, #18a04a);
+  opacity: 0.15;
+  animation: cm-burst 2.1s ease-in-out infinite alternate;
+}
+.pop .flash {
+  fill: var(--c-light, #70d494);
+  opacity: 0.3;
+}
+@keyframes cm-burst {
+  0% { opacity: 0.1; transform: scale(0.97); }
+  100% { opacity: 0.35; transform: scale(1.04); }
+}

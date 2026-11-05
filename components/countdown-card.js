@@ -14,6 +14,7 @@ import {
   FaTowerBroadcast,
   FaArrowRight,
 } from "react-icons/fa6";
+import CodeMoleculeBrand from "./code-molecule-brand";
 
 const pad = (value) => String(value).padStart(2, "0");
 
@@ -358,7 +359,7 @@ export default function CountdownCard({ className = "" }) {
             className="text-[10px] font-mono text-slate-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
           >
             <FaExpand className="text-[9px]" />
-            <span>View Fullscreen (F)</span>
+            <span>View Fullscreen</span>
           </button>
         </div>
       </div>
@@ -369,7 +370,7 @@ export default function CountdownCard({ className = "" }) {
       {mounted &&
         isFullscreen &&
         createPortal(
-          <div className="fixed inset-0 z-[999999] flex flex-col justify-between bg-[#010714] text-white selection:bg-[#F59E0B] selection:text-black overflow-y-auto min-h-screen">
+          <div className="fixed inset-0 z-[999999] flex flex-col justify-between bg-[#010714] text-white selection:bg-[#F59E0B] selection:text-black h-screen h-[100dvh] max-h-screen overflow-hidden">
             {/* Dramatic Stadium Night Lighting Background */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
               <div className="absolute -top-40 left-1/4 size-[700px] rounded-full bg-amber-500/15 blur-[160px]" />
@@ -380,29 +381,29 @@ export default function CountdownCard({ className = "" }) {
             </div>
 
             {/* TOP BAR: BRANDING + LIVE BD TIME + CONTROLS */}
-            <header className="relative z-20 flex flex-wrap items-center justify-between gap-4 p-4 sm:p-6 lg:p-8 border-b border-white/10 backdrop-blur-md bg-black/40">
+            <header className="relative z-20 shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6 sm:py-3.5 border-b border-white/10 backdrop-blur-md bg-black/40">
               {/* Left Tournament Logo */}
-              <div className="flex items-center gap-3">
-                <div className="size-10 sm:size-12 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/30 to-amber-500/10 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-                  <FaTrophy className="text-xl sm:text-2xl text-amber-400" />
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <div className="size-8 sm:size-10 rounded-xl sm:rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/30 to-amber-500/10 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.3)] shrink-0">
+                  <FaTrophy className="text-base sm:text-xl text-amber-400" />
                 </div>
                 <div>
-                  <h2 className="text-sm sm:text-base font-black tracking-wider uppercase text-white flex items-center gap-2">
+                  <h2 className="text-xs sm:text-sm md:text-base font-black tracking-wider uppercase text-white flex items-center gap-2">
                     <span>ESDM PREMIER LEAGUE 2027</span>
                     <span className="hidden sm:inline-block rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[9px] font-black text-amber-300">
                       OFFICIAL DRAFT
                     </span>
                   </h2>
-                  <p className="text-[10px] sm:text-xs text-slate-400 font-medium">
+                  <p className="text-[9px] sm:text-[11px] text-slate-400 font-medium truncate max-w-[240px] sm:max-w-none">
                     Auditorium Stage Screen • Patuakhali Science and Technology University
                   </p>
                 </div>
               </div>
 
               {/* Center Real-Time BD Clock */}
-              <div className="hidden md:flex items-center gap-2.5 rounded-full border border-amber-500/30 bg-black/60 px-4 py-1.5 backdrop-blur-xl shadow-inner">
+              <div className="hidden lg:flex items-center gap-2 rounded-full border border-amber-500/30 bg-black/60 px-3.5 py-1 backdrop-blur-xl shadow-inner">
                 <FaClock className="text-amber-400 text-xs animate-spin-slow" />
-                <span className="text-[11px] font-mono font-bold tracking-wider text-slate-300">
+                <span className="text-[10px] font-mono font-bold tracking-wider text-slate-300">
                   CURRENT BD TIME:
                 </span>
                 <span className="font-mono text-xs font-black text-amber-400 tabular-nums">
@@ -411,12 +412,12 @@ export default function CountdownCard({ className = "" }) {
               </div>
 
               {/* Right Controls */}
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 shrink-0">
                 {/* Audio Toggle */}
                 <button
                   type="button"
                   onClick={() => setIsMuted(!isMuted)}
-                  className="grid size-9 sm:size-10 place-items-center rounded-full border border-white/20 bg-black/60 text-amber-400 hover:bg-white/10 hover:border-amber-400/50 backdrop-blur-md cursor-pointer transition-all shadow-sm"
+                  className="grid size-8 sm:size-9 place-items-center rounded-full border border-white/20 bg-black/60 text-amber-400 hover:bg-white/10 hover:border-amber-400/50 backdrop-blur-md cursor-pointer transition-all shadow-sm"
                   title={isMuted ? "Unmute Broadcast Audio" : "Mute Audio"}
                 >
                   {isMuted ? (
@@ -430,28 +431,25 @@ export default function CountdownCard({ className = "" }) {
                 <button
                   type="button"
                   onClick={exitFullscreen}
-                  className="flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/20 hover:bg-amber-500/30 px-3.5 sm:px-4 py-2 text-xs font-black uppercase tracking-wider text-amber-300 hover:text-white backdrop-blur-md cursor-pointer transition-all shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:border-amber-400"
-                  title="Exit Fullscreen (ESC or F)"
+                  className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-amber-500/40 bg-amber-500/20 hover:bg-amber-500/30 px-3 sm:px-4 py-1.5 text-xs font-black uppercase tracking-wider text-amber-300 hover:text-white backdrop-blur-md cursor-pointer transition-all shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:border-amber-400"
+                  title="Exit Fullscreen"
                 >
                   <FaCompress className="text-xs" />
-                  <span>Exit Fullscreen</span>
-                  <span className="hidden sm:inline-block rounded bg-black/50 px-1.5 py-0.5 text-[9px] font-mono text-slate-300">
-                    ESC
-                  </span>
+                  <span className="text-[11px] sm:text-xs">Exit Fullscreen</span>
                 </button>
               </div>
             </header>
 
-            {/* MAIN FULLSCREEN PRESENTATION STAGE */}
-            <main className="relative z-10 flex-1 flex flex-col justify-center items-center px-4 py-8 sm:py-12 max-w-6xl mx-auto w-full text-center">
+            {/* MAIN FULLSCREEN PRESENTATION STAGE (Always perfectly fitted inside viewport) */}
+            <main className="relative z-10 flex-1 min-h-0 flex flex-col justify-center items-center px-4 py-2 sm:py-4 max-w-5xl mx-auto w-full text-center">
               {/* Top Animated Status Pill */}
-              <div className="inline-flex items-center gap-2.5 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/25 to-amber-500/15 px-5 sm:px-6 py-2 text-xs sm:text-sm font-black uppercase tracking-widest text-amber-300 shadow-[0_0_35px_rgba(245,158,11,0.25)] mb-6 sm:mb-8 animate-pulse">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/25 to-amber-500/15 px-3.5 sm:px-5 py-1 sm:py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-300 shadow-[0_0_25px_rgba(245,158,11,0.2)] mb-2 sm:mb-3.5 animate-pulse shrink-0">
                 <span
-                  className={`size-2.5 rounded-full ${
+                  className={`size-2 rounded-full ${
                     displayTime.isLive ? "bg-emerald-400" : "bg-amber-400"
                   } animate-ping`}
                 />
-                <FaGavel className="text-amber-400 text-sm" />
+                <FaGavel className="text-amber-400 text-xs" />
                 <span>
                   {displayTime.isLive
                     ? "AUCTION IS LIVE NOW • OFFICIAL DRAFT UNDERWAY"
@@ -460,7 +458,7 @@ export default function CountdownCard({ className = "" }) {
               </div>
 
               {/* Grand Main Headline */}
-              <h1 className="font-sans font-black text-3xl sm:text-5xl md:text-6xl lg:text-7xl uppercase tracking-tight text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.8)] mb-3 sm:mb-4">
+              <h1 className="font-sans font-black text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl uppercase tracking-tight text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.8)] mb-1 sm:mb-2 shrink-0 leading-tight">
                 {displayTime.isLive ? (
                   <>
                     THE AUCTION ARENA <br />
@@ -470,7 +468,7 @@ export default function CountdownCard({ className = "" }) {
                   </>
                 ) : (
                   <>
-                    COUNTDOWN TO <br className="hidden sm:block" />
+                    COUNTDOWN TO{" "}
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-amber-200 to-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.4)]">
                       PLAYER AUCTION
                     </span>
@@ -479,7 +477,7 @@ export default function CountdownCard({ className = "" }) {
               </h1>
 
               {/* Subtitle with BD Time target */}
-              <p className="text-sm sm:text-lg md:text-xl text-slate-300 font-medium max-w-2xl mx-auto mb-8 sm:mb-12">
+              <p className="text-xs sm:text-sm md:text-base text-slate-300 font-medium max-w-xl mx-auto mb-3 sm:mb-5 line-clamp-2 shrink-0">
                 {displayTime.isLive ? (
                   "Teams are assembled and bidding on marquee players is live. Join the bidding floor or watch on the projector screen."
                 ) : (
@@ -488,123 +486,123 @@ export default function CountdownCard({ className = "" }) {
                     <strong className="text-amber-300 font-black">
                       Today at 5:30 PM BD Time (GMT +6.00)
                     </strong>
-                    . All franchise captains, team owners, and draft players assemble.
+                    . All franchise captains & draft players assemble.
                   </>
                 )}
               </p>
 
-              {/* GIANT AUDITORIUM SCOREBOARD DIGITS */}
-              <div className="flex items-center justify-center gap-2 sm:gap-4 md:gap-6 my-2 sm:my-4 w-full">
+              {/* GIANT AUDITORIUM SCOREBOARD DIGITS (Flexibly scaled so it never overflows screen height) */}
+              <div className="flex items-center justify-center gap-1.5 xs:gap-3 sm:gap-4 md:gap-5 my-1 sm:my-2 w-full max-w-4xl shrink">
                 {/* Days */}
-                <div className="flex flex-col items-center flex-1 max-w-[170px]">
-                  <div className="w-full aspect-[4/4.5] flex items-center justify-center rounded-2xl sm:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-2 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
-                    <span className="font-mono text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
+                <div className="flex flex-col items-center flex-1 max-w-[140px]">
+                  <div className="w-full aspect-[4/4.2] flex items-center justify-center rounded-xl sm:rounded-2xl md:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-1 sm:p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
+                    <span className="font-mono text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
                       {pad(displayTime.days)}
                     </span>
                   </div>
-                  <span className="mt-3 text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-[2px] sm:tracking-[3px] text-slate-400">
+                  <span className="mt-1 sm:mt-2 text-[9px] sm:text-xs font-black uppercase tracking-[1.5px] sm:tracking-[2.5px] text-slate-400">
                     DAYS
                   </span>
                 </div>
 
                 {/* Separator */}
-                <span className="font-mono text-3xl sm:text-5xl md:text-6xl font-black text-amber-400/80 -mt-8 sm:-mt-10">
+                <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400/80 -mt-5 sm:-mt-7">
                   :
                 </span>
 
                 {/* Hours */}
-                <div className="flex flex-col items-center flex-1 max-w-[170px]">
-                  <div className="w-full aspect-[4/4.5] flex items-center justify-center rounded-2xl sm:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-2 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
-                    <span className="font-mono text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
+                <div className="flex flex-col items-center flex-1 max-w-[140px]">
+                  <div className="w-full aspect-[4/4.2] flex items-center justify-center rounded-xl sm:rounded-2xl md:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-1 sm:p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
+                    <span className="font-mono text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
                       {pad(displayTime.hours)}
                     </span>
                   </div>
-                  <span className="mt-3 text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-[2px] sm:tracking-[3px] text-slate-400">
+                  <span className="mt-1 sm:mt-2 text-[9px] sm:text-xs font-black uppercase tracking-[1.5px] sm:tracking-[2.5px] text-slate-400">
                     HOURS
                   </span>
                 </div>
 
                 {/* Separator */}
-                <span className="font-mono text-3xl sm:text-5xl md:text-6xl font-black text-amber-400/80 -mt-8 sm:-mt-10">
+                <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400/80 -mt-5 sm:-mt-7">
                   :
                 </span>
 
                 {/* Minutes */}
-                <div className="flex flex-col items-center flex-1 max-w-[170px]">
-                  <div className="w-full aspect-[4/4.5] flex items-center justify-center rounded-2xl sm:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-2 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
-                    <span className="font-mono text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
+                <div className="flex flex-col items-center flex-1 max-w-[140px]">
+                  <div className="w-full aspect-[4/4.2] flex items-center justify-center rounded-xl sm:rounded-2xl md:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-1 sm:p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
+                    <span className="font-mono text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
                       {pad(displayTime.minutes)}
                     </span>
                   </div>
-                  <span className="mt-3 text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-[2px] sm:tracking-[3px] text-slate-400">
+                  <span className="mt-1 sm:mt-2 text-[9px] sm:text-xs font-black uppercase tracking-[1.5px] sm:tracking-[2.5px] text-slate-400">
                     MINUTES
                   </span>
                 </div>
 
                 {/* Separator */}
-                <span className="font-mono text-3xl sm:text-5xl md:text-6xl font-black text-amber-400/80 -mt-8 sm:-mt-10">
+                <span className="font-mono text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black text-amber-400/80 -mt-5 sm:-mt-7">
                   :
                 </span>
 
                 {/* Seconds */}
-                <div className="flex flex-col items-center flex-1 max-w-[170px]">
-                  <div className="w-full aspect-[4/4.5] flex items-center justify-center rounded-2xl sm:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-2 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
-                    <span className="font-mono text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
+                <div className="flex flex-col items-center flex-1 max-w-[140px]">
+                  <div className="w-full aspect-[4/4.2] flex items-center justify-center rounded-xl sm:rounded-2xl md:rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0a1224]/95 to-[#040814]/95 p-1 sm:p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.15)] backdrop-blur-xl">
+                    <span className="font-mono text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-amber-400 drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] tabular-nums">
                       {pad(displayTime.seconds)}
                     </span>
                   </div>
-                  <span className="mt-3 text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-[2px] sm:tracking-[3px] text-slate-400">
+                  <span className="mt-1 sm:mt-2 text-[9px] sm:text-xs font-black uppercase tracking-[1.5px] sm:tracking-[2.5px] text-slate-400">
                     SECONDS
                   </span>
                 </div>
               </div>
 
               {/* ACTION BUTTONS ROW */}
-              <div className="mt-10 sm:mt-12 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+              <div className="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5 shrink-0">
                 <Link
                   href="/auction"
-                  className="flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 px-6 sm:px-8 py-3.5 sm:py-4 text-xs sm:text-sm font-black uppercase tracking-wider text-black shadow-[0_0_30px_rgba(245,158,11,0.6)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 px-5 sm:px-7 py-2.5 sm:py-3 text-[11px] sm:text-xs md:text-sm font-black uppercase tracking-wider text-black shadow-[0_0_25px_rgba(245,158,11,0.5)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
                 >
-                  <FaGavel className="text-sm sm:text-base" />
+                  <FaGavel className="text-xs sm:text-sm" />
                   <span>
                     {displayTime.isLive ? "ENTER LIVE AUCTION ARENA NOW" : "OPEN AUCTION ARENA (STANDBY)"}
                   </span>
-                  <FaArrowRight className="text-xs" />
+                  <FaArrowRight className="text-[10px] sm:text-xs" />
                 </Link>
 
                 <Link
                   href="/auction/stage"
-                  className="flex items-center gap-2 rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 sm:px-7 py-3.5 sm:py-4 text-xs sm:text-sm font-black uppercase tracking-wider text-slate-200 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:border-amber-400"
+                  className="flex items-center gap-2 rounded-xl sm:rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 px-4 sm:px-6 py-2.5 sm:py-3 text-[11px] sm:text-xs md:text-sm font-black uppercase tracking-wider text-slate-200 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:border-amber-400"
                 >
-                  <FaTowerBroadcast className="text-amber-400 text-sm" />
+                  <FaTowerBroadcast className="text-amber-400 text-xs sm:text-sm" />
                   <span>Auditorium Stage Screen</span>
                 </Link>
               </div>
 
               {/* Mobile Time indicator */}
-              <div className="mt-6 md:hidden flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-4 py-1.5 text-xs font-mono text-slate-400">
+              <div className="mt-3 lg:hidden flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-1 text-[10px] font-mono text-slate-400 shrink-0">
                 <span>BD Time:</span>
                 <b className="text-amber-400">{bdTimeString || "--:--:--"}</b>
               </div>
             </main>
 
-            {/* BOTTOM BAR: TOURNAMENT SPECS & SHORTCUT INFO */}
-            <footer className="relative z-20 flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6 border-t border-white/10 backdrop-blur-md bg-black/40 text-[11px] text-slate-400">
-              <div className="flex items-center gap-4">
-                <span className="flex items-center gap-1.5 text-slate-300 font-bold">
+            {/* BOTTOM BAR: TOURNAMENT SPECS & DEVELOPER BRANDING (Always visible on screen without scrolling) */}
+            <footer className="relative z-20 shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6 sm:py-3 border-t border-white/10 backdrop-blur-md bg-black/50 text-[11px] text-slate-400">
+              <div className="flex items-center gap-2 sm:gap-4 truncate">
+                <span className="flex items-center gap-1.5 text-slate-300 font-bold shrink-0">
                   <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
                   EPL 2027 Mega Auction Draft
                 </span>
-                <span className="hidden sm:inline">•</span>
-                <span className="hidden sm:inline">6 Franchise Squads</span>
-                <span className="hidden sm:inline">•</span>
-                <span className="hidden sm:inline">100+ Star Players</span>
-                <span className="hidden sm:inline">•</span>
-                <span className="hidden sm:inline">Dynamic Bidding Rules</span>
+                <span className="hidden md:inline">•</span>
+                <span className="hidden md:inline">6 Franchise Squads</span>
+                <span className="hidden lg:inline">•</span>
+                <span className="hidden lg:inline">100+ Star Players</span>
+                <span className="hidden xl:inline">•</span>
+                <span className="hidden xl:inline">Dynamic Bidding Rules</span>
               </div>
 
-              <div className="flex items-center gap-4 font-mono text-[10px] sm:text-[11px]">
-                <span>Press <strong>F</strong> or <strong>ESC</strong> to exit fullscreen</span>
+              <div className="flex items-center shrink-0">
+                <CodeMoleculeBrand variant="badge" />
               </div>
             </footer>
           </div>,

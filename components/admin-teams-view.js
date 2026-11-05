@@ -12,6 +12,10 @@ import {
   FaUserMinus,
   FaUserPlus,
   FaCoins,
+  FaPenToSquare,
+  FaCamera,
+  FaUpload,
+  FaFloppyDisk,
 } from "react-icons/fa6";
 import ExportButtonGroup from "./export-button-group";
 import AdjustCoinsModal from "./admin-adjust-coins-modal";
@@ -312,6 +316,396 @@ const AddTeamModal = ({ onClose, onTeamCreated }) => {
               className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#d4a84f] to-[#b8872f] px-5 py-2 text-xs font-bold text-black hover:brightness-110 disabled:opacity-50 cursor-pointer shadow-lg"
             >
               {submitting ? "Creating..." : "Create Team"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// EDIT TEAM MODAL (LOGO, NAME, KEY, PURSE, STATUS, MANAGERS)
+// ==========================================
+const EditTeamModal = ({ team, onClose, onTeamUpdated }) => {
+  const [name, setName] = useState(team.name || "");
+  const [uniqueKey, setUniqueKey] = useState(team.uniqueKey || "");
+  const [status, setStatus] = useState(team.status || "active");
+  const [points, setPoints] = useState(String(team.points ?? 10000));
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(team.logoUrl || "");
+  const [removeLogo, setRemoveLogo] = useState(false);
+  const [managers, setManagers] = useState(
+    team.managers?.length
+      ? team.managers.map((m) => ({ name: m.name || "", phone: m.phone || "", email: m.email || "" }))
+      : []
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleManagerChange = (index, field, value) => {
+    const updated = [...managers];
+    updated[index][field] = value;
+    setManagers(updated);
+  };
+
+  const addManagerField = () => {
+    setManagers([...managers, { name: "", phone: "", email: "" }]);
+  };
+
+  const removeManagerField = (index) => {
+    setManagers(managers.filter((_, i) => i !== index));
+  };
+
+  const handleLogoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
+      const isAllowedType =
+        validTypes.includes(file.type?.toLowerCase()) ||
+        /\.(jpe?g|png|webp)$/i.test(file.name || "");
+
+      if (!isAllowedType) {
+        setError("Logo must be a JPG, PNG, or WEBP image.");
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        setError("Logo must be smaller than 2MB.");
+        return;
+      }
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+      setRemoveLogo(false);
+      setError("");
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview("");
+    setRemoveLogo(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError("Team name is required.");
+      return;
+    }
+    if (!uniqueKey.trim()) {
+      setError("Team unique key is required.");
+      return;
+    }
+
+    const cleanManagers = managers
+      .filter((m) => m && (m.name?.trim() || m.phone?.trim() || m.email?.trim()))
+      .map((m) => ({
+        name: m.name.trim(),
+        phone: m.phone.trim(),
+        email: m.email.trim().toLowerCase(),
+      }));
+
+    for (const m of cleanManagers) {
+      if (!m.name || !m.phone || !m.email) {
+        setError("Please complete all details (name, phone, email) for each manager, or remove incomplete entries.");
+        return;
+      }
+      if (!/^\d{11}$/.test(m.phone.replace(/\D/g, ""))) {
+        setError("Manager phone number must contain exactly 11 digits.");
+        return;
+      }
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+
+      let newLogoUrl = undefined;
+
+      // 1. If a new logo file was selected, upload via dedicated logo endpoint
+      if (logoFile) {
+        const fd = new FormData();
+        fd.append("logo", logoFile);
+        const logoRes = await fetch(`/api/teams/${team._id}/logo`, {
+          method: "POST",
+          body: fd,
+        });
+        const logoData = await logoRes.json();
+        if (!logoRes.ok) throw new Error(logoData.error || "Failed to upload team logo.");
+        newLogoUrl = logoData.logoUrl;
+      } else if (removeLogo) {
+        newLogoUrl = null;
+      }
+
+      // 2. Update team details (name, key, status, purse, managers, logoUrl)
+      const payload = {
+        name: name.trim(),
+        uniqueKey: uniqueKey.trim().toUpperCase(),
+        status,
+        points: Number(points) || 10000,
+        managers: cleanManagers,
+      };
+      if (newLogoUrl !== undefined) {
+        payload.logoUrl = newLogoUrl;
+      }
+
+      const res = await fetch(`/api/teams/${team._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update team.");
+
+      onTeamUpdated(data.team);
+      onClose();
+    } catch (err) {
+      setError(err.message || "Failed to update team.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="max-h-[92vh] w-full max-w-[640px] overflow-y-auto rounded-2xl border border-white/20 bg-[#031827] p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-5 flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2.5">
+            <span className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-[#d4a84f] to-[#997328] text-base text-black font-black">
+              <FaPenToSquare />
+            </span>
+            <div>
+              <h3 className="font-bold text-white text-base">Edit Team Details</h3>
+              <p className="text-xs text-[#aeac78]">Update logo, name, purse, franchise key, status, and managers</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="cursor-pointer rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
+          >
+            <FaXmark className="text-lg" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-500/50 bg-red-950/70 p-3 text-xs text-red-200 font-semibold flex items-center justify-between">
+            <span>⚠️ {error}</span>
+            <button type="button" onClick={() => setError("")} className="text-red-400 hover:text-white">
+              <FaXmark />
+            </button>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          {/* LOGO UPLOAD & PREVIEW */}
+          <div className="rounded-xl border border-white/10 bg-[#02121f] p-3.5 flex flex-col sm:flex-row items-center gap-4">
+            <div className="relative group shrink-0">
+              {logoPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoPreview}
+                  alt="Team Logo"
+                  className="size-20 sm:size-24 rounded-full object-cover border-2 border-amber-500/50 shadow-md ring-2 ring-amber-500/20"
+                />
+              ) : (
+                <div className="grid size-20 sm:size-24 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d] border-2 border-white/20 font-bold">
+                  No Logo
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 w-full text-center sm:text-left space-y-2">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Team Logo</span>
+                {logoFile && (
+                  <span className="rounded bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                    New Selected
+                  </span>
+                )}
+                {removeLogo && !logoFile && (
+                  <span className="rounded bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold text-rose-300">
+                    Will be Removed
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Recommended: Square PNG, JPG or WEBP (Max 2 MB). Displayed across arena & auction projector.
+              </p>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/35 px-3 py-1.5 text-xs font-bold text-amber-300 shadow-sm transition-all">
+                  <FaUpload className="text-[11px]" />
+                  <span>{logoPreview ? "Change Logo" : "Upload Logo"}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="sr-only"
+                    onChange={handleLogoChange}
+                  />
+                </label>
+                {logoPreview && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveLogo}
+                    className="cursor-pointer rounded-lg bg-red-950/70 border border-red-500/40 px-2.5 py-1.5 text-xs font-bold text-red-300 hover:bg-red-900/80 hover:text-white transition-all"
+                  >
+                    Remove Logo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* NAME & UNIQUE KEY */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-[#d4dde1] uppercase mb-1">
+                Team Name <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Thunder Strikers"
+                className="w-full rounded-xl border border-white/15 bg-[#02121f] px-3 py-2 text-white outline-none focus:border-[#d4a84f]"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-[#d4dde1] uppercase mb-1">
+                Unique Franchise Key <span className="text-red-400">*</span>
+              </label>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. THUNDER27"
+                  className="w-full rounded-xl border border-white/15 bg-[#02121f] px-3 py-2 font-mono uppercase text-[#d4a84f] font-bold outline-none focus:border-[#d4a84f]"
+                  value={uniqueKey}
+                  onChange={(e) => setUniqueKey(e.target.value.toUpperCase())}
+                />
+                <button
+                  type="button"
+                  onClick={() => setUniqueKey(generateRandomKey())}
+                  className="cursor-pointer rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 px-3 py-2 text-slate-300 hover:text-white"
+                  title="Generate Random Key"
+                >
+                  <FaDice />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* STATUS & PURSE BUDGET */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-[#d4dde1] uppercase mb-1">
+                Team Status
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full rounded-xl border border-white/15 bg-[#02121f] px-3 py-2 text-white outline-none focus:border-[#d4a84f]"
+              >
+                <option value="active">Active (Eligible for auction)</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-[#d4dde1] uppercase mb-1">
+                Total Budget / Purse (PTS)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="500"
+                placeholder="10000"
+                className="w-full rounded-xl border border-white/15 bg-[#02121f] px-3 py-2 font-mono text-amber-400 font-bold outline-none focus:border-[#d4a84f]"
+                value={points}
+                onChange={(e) => setPoints(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* MANAGERS SECTION */}
+          <div className="rounded-xl border border-white/10 bg-[#02121f] p-3 space-y-2">
+            <div className="flex items-center justify-between pb-1">
+              <span className="text-[11px] font-bold text-[#d4dde1] uppercase">Franchise Managers</span>
+              <button
+                type="button"
+                onClick={addManagerField}
+                className="cursor-pointer text-amber-400 hover:text-amber-300 flex items-center gap-1 text-[11px] font-semibold"
+              >
+                <FaPlus className="text-[10px]" /> Add Manager
+              </button>
+            </div>
+
+            {managers.length === 0 ? (
+              <p className="text-[11px] text-[#8b979d] italic py-2 text-center">
+                No managers added yet. Click &quot;+ Add Manager&quot; above.
+              </p>
+            ) : (
+              managers.map((m, idx) => (
+                <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center border-t border-white/5 pt-2">
+                  <input
+                    type="text"
+                    placeholder="Manager Name"
+                    className="rounded-lg border border-white/15 bg-[#031827] px-2.5 py-1.5 text-white outline-none focus:border-[#d4a84f]"
+                    value={m.name}
+                    onChange={(e) => handleManagerChange(idx, "name", e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Phone (11 digits)"
+                    className="rounded-lg border border-white/15 bg-[#031827] px-2.5 py-1.5 text-white outline-none focus:border-[#d4a84f]"
+                    value={m.phone}
+                    onChange={(e) => handleManagerChange(idx, "phone", e.target.value)}
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      className="flex-1 rounded-lg border border-white/15 bg-[#031827] px-2.5 py-1.5 text-white outline-none focus:border-[#d4a84f]"
+                      value={m.email}
+                      onChange={(e) => handleManagerChange(idx, "email", e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeManagerField(idx)}
+                      className="cursor-pointer text-slate-400 hover:text-red-300 p-1"
+                      title="Remove manager"
+                    >
+                      <FaXmark />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* ACTION BUTTONS */}
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#d4a84f] to-[#b8872f] px-5 py-2 text-xs font-bold text-black hover:brightness-110 disabled:opacity-50 cursor-pointer shadow-lg"
+            >
+              <FaFloppyDisk />
+              <span>{submitting ? "Saving..." : "Save Changes"}</span>
             </button>
           </div>
         </form>
@@ -686,7 +1080,7 @@ const AddPlayerToTeamModal = ({ team, allPlayers, onClose, onPlayerAdded }) => {
 // ==========================================
 // TEAM DETAIL & SQUAD MANAGEMENT MODAL
 // ==========================================
-const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTeam }) => {
+const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTeam, onEditTeam }) => {
   const [currentTeam, setCurrentTeam] = useState(team);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [showCoinsModal, setShowCoinsModal] = useState(false);
@@ -841,18 +1235,28 @@ const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTea
         {/* HEADER */}
         <div className="mb-4 flex items-start justify-between gap-3 border-b border-white/10 pb-4">
           <div className="flex items-center gap-4">
-            {currentTeam.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                className="size-20 sm:size-24 rounded-full object-cover border-2 border-amber-500/50 shadow-xl ring-2 ring-amber-500/20 shrink-0"
-                src={currentTeam.logoUrl}
-                alt={currentTeam.name}
-              />
-            ) : (
-              <div className="grid size-20 sm:size-24 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d] border-2 border-amber-500/30 font-bold shrink-0">
-                No Logo
+            <div
+              className="relative group cursor-pointer shrink-0"
+              onClick={() => onEditTeam?.(currentTeam)}
+              title="Click to change team logo & edit details"
+            >
+              {currentTeam.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="size-20 sm:size-24 rounded-full object-cover border-2 border-amber-500/50 shadow-xl ring-2 ring-amber-500/20 group-hover:brightness-75 transition-all"
+                  src={currentTeam.logoUrl}
+                  alt={currentTeam.name}
+                />
+              ) : (
+                <div className="grid size-20 sm:size-24 place-items-center rounded-full bg-white/10 text-xs text-[#8b979d] border-2 border-amber-500/30 font-bold group-hover:border-amber-400 transition-all">
+                  No Logo
+                </div>
+              )}
+              <div className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-[10px] font-bold text-white transition-opacity pointer-events-none">
+                <FaCamera className="text-sm mb-0.5" />
+                <span>Change</span>
               </div>
-            )}
+            </div>
             <div>
               <h2 className="text-2xl sm:text-3xl font-black text-white uppercase drop-shadow">{currentTeam.name}</h2>
               <div className="mt-1 flex items-center gap-2">
@@ -867,6 +1271,16 @@ const TeamDetailModal = ({ team, allPlayers, onClose, onTeamUpdated, onDeleteTea
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              className="cursor-pointer rounded-lg bg-[#d4a84f]/20 border border-[#d4a84f]/40 px-2.5 py-1.5 text-xs font-bold text-[#f2d590] hover:bg-[#d4a84f]/35 flex items-center gap-1.5 shadow-sm transition-all"
+              type="button"
+              onClick={() => onEditTeam?.(currentTeam)}
+              title="Edit team logo, name, purse, key and managers"
+            >
+              <FaPenToSquare className="text-[11px]" />
+              <span>Edit Team</span>
+            </button>
+
             <button
               className="cursor-pointer rounded-lg bg-amber-500/20 border border-amber-500/40 px-2.5 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/35 flex items-center gap-1.5 shadow-sm"
               type="button"
@@ -1264,6 +1678,7 @@ const AdminTeamsView = () => {
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
   const [deletingTeamId, setDeletingTeamId] = useState(null);
   const [coinModalTeam, setCoinModalTeam] = useState(null);
+  const [editingTeam, setEditingTeam] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -1506,6 +1921,14 @@ const AdminTeamsView = () => {
                   <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
+                      onClick={() => setEditingTeam(team)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-[#d4a84f]/20 border border-[#d4a84f]/40 px-2.5 py-1 text-[11px] font-bold text-[#f2d590] hover:bg-[#d4a84f]/35 cursor-pointer shadow-sm"
+                      title="Edit team logo, name, purse, key and managers"
+                    >
+                      <FaPenToSquare className="text-[10px]" /> Edit
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setCoinModalTeam(team)}
                       className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 border border-amber-500/40 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/35 cursor-pointer shadow-sm"
                       title="Add or adjust team points"
@@ -1573,8 +1996,26 @@ const AdminTeamsView = () => {
             loadData();
           }}
           onDeleteTeam={handleDeleteTeam}
+          onEditTeam={(t) => setEditingTeam(t)}
         />
       )}
+
+      {/* EDIT TEAM MODAL */}
+      {editingTeam && (
+        <EditTeamModal
+          team={editingTeam}
+          onClose={() => setEditingTeam(null)}
+          onTeamUpdated={(updated) => {
+            setTeams((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
+            if (selectedTeam?._id === updated._id) {
+              setSelectedTeam(updated);
+            }
+            setFeedback(`Team "${updated.name}" updated successfully!`);
+            loadData();
+          }}
+        />
+      )}
+
       {/* ADJUST COINS MODAL */}
       {coinModalTeam && (
         <AdjustCoinsModal

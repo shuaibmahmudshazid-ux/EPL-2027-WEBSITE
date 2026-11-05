@@ -23,6 +23,7 @@ import TeamCrest from "./team-crest";
 import AuctionRoundStamp from "./auction-round-stamp";
 import CountdownCard from "./countdown-card";
 import FullscreenSoldPlayerCard from "./fullscreen-sold-player-card";
+import CodeMoleculeBrand from "./code-molecule-brand";
 import { calculateNextBid, getBidIncrement } from "../lib/auctionRules";
 
 const pad = (val) => String(val).padStart(2, "0");
@@ -224,12 +225,8 @@ function TeamPurchasedSquadSection({ team, players, title = null }) {
                     <h4 className="font-sans font-black text-xs sm:text-sm text-white uppercase truncate group-hover:text-amber-300 transition-colors">
                       {player.fullName}
                     </h4>
-                    <p className="text-[10px] text-amber-400 font-semibold truncate mt-0.5">
+                    <p className="text-xs text-amber-400 font-bold truncate mt-0.5">
                       {player.playingRole || (Array.isArray(player.categories) ? player.categories[0] : player.category) || "Player"}
-                    </p>
-                    <p className="text-[9px] text-slate-400 font-mono mt-0.5 truncate">
-                      ID: <span className="text-slate-200">{player.playerId || "—"}</span>
-                      {player.session ? ` • ${player.session}` : ""}
                     </p>
                   </div>
                 </div>
@@ -293,10 +290,13 @@ export default function LiveAuctionArena() {
   const prevPurchasedCountRef = useRef(null);
   const lastSoldKeyRef = useRef(null);
 
-  // Polling live auction state
-  const fetchState = useCallback(async () => {
+  // Polling live auction state with AbortController to handle component unmount / network interruptions safely
+  const fetchState = useCallback(async (signal) => {
     try {
-      const res = await fetch("/api/auction/state", { cache: "no-store" });
+      const res = await fetch("/api/auction/state", {
+        cache: "no-store",
+        signal,
+      });
       if (res.ok) {
         const data = await res.json();
         setAuctionData(data);
@@ -308,19 +308,27 @@ export default function LiveAuctionArena() {
         }
       }
     } catch (err) {
-      console.error("Auction state fetch error:", err);
+      if (err.name !== "AbortError") {
+        console.warn("Auction state polling notice:", err.message || err);
+      }
     } finally {
       setLoading(false);
     }
   }, [isMuted]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetchState();
+      fetchState(controller.signal);
     }, 0);
-    const interval = setInterval(fetchState, 1500);
+
+    const interval = setInterval(() => {
+      fetchState(controller.signal);
+    }, 1500);
+
     return () => {
       clearTimeout(timer);
+      controller.abort();
       clearInterval(interval);
     };
   }, [fetchState]);
@@ -1015,16 +1023,16 @@ export default function LiveAuctionArena() {
 
           {/* ======================================================== */}
           {/* MAIN BROADCAST ARENA: 3-COLUMN MODERN BROADCAST LAYOUT   */}
-          {/* LEFT: PLAYER IDENTITY & LIVE BID HISTORY                 */}
+          {/* LEFT: PLAYER DETAILS & TEAM REMAINING BALANCES           */}
           {/* MIDDLE: PLAYER IMAGE (COVERING 30% OF SCREEN)            */}
-          {/* RIGHT: CATEGORY, BOUGHT BY LOGO, CONTROLS & TEAM PURSES  */}
+          {/* RIGHT: BIDDING CONTROLS & LIVE BID HISTORY               */}
           {/* ======================================================== */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 mb-6 sm:mb-8 items-start">
             
-            {/* 1. LEFT PANEL: CURRENT PLAYER DETAILS & LIVE BID HISTORY */}
+            {/* 1. LEFT PANEL: CURRENT PLAYER DETAILS & TEAM REMAINING PURSES */}
             <div className="lg:col-span-4 flex flex-col space-y-4 sm:space-y-5">
               
-              {/* Player Details Card */}
+              {/* Player Details Card (Only Name and Category) */}
               <div className="relative rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-br from-[#0c1626]/90 via-[#0a1220]/85 to-[#070d18]/95 backdrop-blur-2xl p-4 sm:p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85)]">
                 <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-white/10">
                   <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
@@ -1041,38 +1049,22 @@ export default function LiveAuctionArena() {
                 {activePlayer ? (
                   <div className="space-y-3">
                     <div>
+                      <span className="block text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-1">
+                        PLAYER NAME
+                      </span>
                       <h1 className="font-sans font-black text-xl sm:text-2xl xl:text-3xl text-white uppercase tracking-tight leading-tight drop-shadow-md">
                         {activePlayer.fullName}
                       </h1>
-                      <p className="text-xs sm:text-sm font-semibold text-amber-300 mt-0.5">
-                        {activePlayer.role || activePlayer.category}
-                      </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 text-xs">
-                      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-2">
-                        <span className="block text-[10px] text-slate-400 uppercase font-bold">Batsman</span>
-                        <strong className="text-white font-extrabold">{activePlayer.batsman}</strong>
-                      </div>
-                      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-2">
-                        <span className="block text-[10px] text-slate-400 uppercase font-bold">Bowler</span>
-                        <strong className="text-white font-extrabold">{activePlayer.bowler}</strong>
-                      </div>
-                      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-2">
-                        <span className="block text-[10px] text-slate-400 uppercase font-bold">Session</span>
-                        <strong className="text-white font-extrabold">{activePlayer.session}</strong>
-                      </div>
-                      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-2">
-                        <span className="block text-[10px] text-slate-400 uppercase font-bold">Student ID</span>
-                        <strong className="text-white font-mono font-extrabold">{activePlayer.playerId}</strong>
-                      </div>
+                    <div className="pt-2.5 border-t border-white/10 flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        CATEGORY / ROLE
+                      </span>
+                      <span className="rounded-xl bg-amber-500/20 border border-amber-500/50 px-3 py-1 text-xs sm:text-sm font-black uppercase tracking-wider text-amber-300 shadow-sm">
+                        {activePlayer.category || activePlayer.role || "Cricket"}
+                      </span>
                     </div>
-
-                    {activePlayer.registrationNumber && (
-                      <div className="text-[11px] text-slate-400 font-mono">
-                        Registration No: <span className="text-white font-bold">{activePlayer.registrationNumber}</span>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="py-8 text-center text-xs text-slate-500 italic">
@@ -1081,39 +1073,53 @@ export default function LiveAuctionArena() {
                 )}
               </div>
 
-              {/* Live Bid History Card */}
+              {/* Team Remaining Balances Card (Moved to Left Bottom) */}
               <div className="relative rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-br from-[#0c1626]/90 via-[#0a1220]/85 to-[#070d18]/95 backdrop-blur-2xl p-4 sm:p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85)]">
                 <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-white/10">
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-200 flex items-center gap-2">
-                    <FaGavel className="text-amber-400 text-xs" />
-                    LIVE BID HISTORY
+                    <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span>TEAM REMAINING PURSES {teamsList.length > 0 && `(${teamsList.length})`}</span>
                   </h3>
-                  <span className="text-[10px] font-mono text-slate-400">Recent Bids</span>
+                  <span className="text-[10px] font-mono text-slate-400">Live Balances • Click to View Squad</span>
                 </div>
 
-                {bidHistory.length > 0 ? (
-                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                    {bidHistory.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-white/[0.02] border border-white/5"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="size-2 rounded-full bg-amber-400 shrink-0 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
-                          <span className="truncate text-slate-200">
-                            <strong className="text-amber-400 font-bold">{item.teamName}</strong> bid{" "}
-                            <span className="text-white font-bold font-mono">{item.amount?.toLocaleString()} PTS</span>
-                          </span>
+                {teamsList.length > 0 ? (
+                  <div className="space-y-2">
+                    {teamsList.map((team, idx) => {
+                      const isMyTeam = liveBiddingTeam && (liveBiddingTeam._id === team._id || liveBiddingTeam._id?.toString() === team._id?.toString());
+                      return (
+                        <div
+                          key={team._id || idx}
+                          onClick={() => setInspectTeamSquad(team)}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border ${team.borderClass || "border-white/10"} ${isMyTeam ? "ring-2 ring-amber-400/60 bg-amber-500/10" : `bg-gradient-to-r ${team.cardBg || "from-[#0a1220] to-[#050914]"}`} hover:border-amber-500/60 transition-all shadow-sm cursor-pointer group`}
+                          title="Click to view team's purchased squad"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <TeamCrest name={team.name} logoUrl={team.logoUrl} className="size-8 sm:size-9 shrink-0 group-hover:scale-105 transition-transform" />
+                            <div className="min-w-0">
+                              <span className="font-extrabold text-xs sm:text-sm text-white uppercase truncate flex items-center gap-1.5 leading-tight">
+                                {team.name}
+                                {isMyTeam && (
+                                  <span className="text-[9px] font-black text-amber-400 bg-amber-500/20 px-1 rounded">YOU</span>
+                                )}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono block mt-0.5 group-hover:text-amber-300 transition-colors">
+                                {team.playerCount || (team.players ? team.players.length : 0)} players bought • View squad ➔
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <span className="block font-mono text-sm sm:text-base font-black text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]">
+                              {team.pointsRemaining?.toLocaleString()} PTS
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-1">
-                          ({item.timeAgo})
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="py-6 text-center text-xs text-slate-500 italic">
-                    No bids placed yet for this player.
+                    No teams registered yet.
                   </div>
                 )}
               </div>
@@ -1173,24 +1179,24 @@ export default function LiveAuctionArena() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent pointer-events-none" />
                 </div>
 
-                {/* Player quick badge below image */}
+                {/* Player quick badge below image (Only Name and Category) */}
                 {activePlayer && (
                   <div className="relative z-10 mt-3 text-center">
-                    <h3 className="font-sans font-black text-sm text-white uppercase tracking-wide truncate max-w-[280px]">
+                    <h3 className="font-sans font-black text-base sm:text-lg text-white uppercase tracking-wide truncate max-w-[320px]">
                       {activePlayer.fullName}
                     </h3>
-                    <p className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mt-0.5">
-                      ID: <span className="text-white">{activePlayer.playerId}</span> • SESSION: <span className="text-white">{activePlayer.session}</span>
+                    <p className="text-xs font-black text-amber-400 uppercase tracking-wider mt-1">
+                      {activePlayer.category || activePlayer.role || "Cricket"}
                     </p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* 3. RIGHT PANEL: RIGHT TO PLAYER (CATEGORY & BOUGHT BY TEAM LOGO + CONTROLS) & TEAM REMAINING BALANCES */}
+            {/* 3. RIGHT PANEL: BIDDING DETAILS (BIG CURRENT BID & TEAM) & LIVE BID HISTORY */}
             <div className="lg:col-span-4 flex flex-col space-y-4 sm:space-y-5">
               
-              {/* Card 1: Category, Bought by Team Logo & Bidding Details */}
+              {/* Card 1: Category, Bought by / Leading Team Logo & Bidding Details */}
               <div className="relative rounded-2xl sm:rounded-3xl border border-amber-500/30 bg-gradient-to-br from-[#0c1626]/90 via-[#0a1220]/85 to-[#070d18]/95 backdrop-blur-2xl p-4 sm:p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85)]">
                 
                 {/* Category & Tier row */}
@@ -1206,51 +1212,51 @@ export default function LiveAuctionArena() {
                   </span>
                 </div>
 
-                {/* Player Bought by Team Logo */}
+                {/* Current Bidding / Winning Team (Bigger Font Display) */}
                 {state.hammerStatus === "sold" ? (
-                  <div className="my-3 flex items-center gap-3.5 rounded-2xl border-2 border-emerald-400 bg-gradient-to-r from-emerald-950/70 via-emerald-900/50 to-black p-3.5 shadow-[0_0_30px_rgba(16,185,129,0.35)]">
+                  <div className="my-3 flex items-center gap-4 rounded-2xl border-2 border-emerald-400 bg-gradient-to-r from-emerald-950/80 via-emerald-900/60 to-black p-3.5 sm:p-4 shadow-[0_0_30px_rgba(16,185,129,0.4)]">
                     <TeamCrest
                       name={winningOrLeadingTeam?.name || "Winning Team"}
                       logoUrl={winningOrLeadingTeam?.logoUrl}
-                      className="size-14 sm:size-16 shrink-0"
+                      className="size-14 sm:size-18 shrink-0 drop-shadow-lg"
                     />
-                    <div className="min-w-0">
-                      <span className="inline-block rounded bg-emerald-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-black font-mono">
+                    <div className="min-w-0 flex-1">
+                      <span className="inline-block rounded bg-emerald-500 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-black font-mono">
                         🏆 SOLD / BOUGHT BY
                       </span>
-                      <h4 className="text-base sm:text-lg font-black uppercase text-white truncate drop-shadow mt-0.5">
+                      <h4 className="text-xl sm:text-2xl lg:text-3xl font-black uppercase text-white truncate drop-shadow mt-1 leading-tight">
                         {winningOrLeadingTeam?.name || "WINNING SQUAD"}
                       </h4>
-                      <p className="font-mono text-xs sm:text-sm font-black text-amber-400">
+                      <p className="font-mono text-sm sm:text-base font-black text-amber-300 mt-0.5">
                         ৳ {(state.currentBid || activePlayer?.currentBid || 0).toLocaleString()} PTS
                       </p>
                     </div>
                   </div>
                 ) : winningOrLeadingTeam?.name ? (
-                  <div className="my-3 flex items-center gap-3 rounded-2xl border border-amber-500/40 bg-white/5 p-3 shadow-inner">
+                  <div className="my-3 flex items-center gap-4 rounded-2xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-950/40 via-amber-900/20 to-black/60 p-3.5 sm:p-4 shadow-[0_0_25px_rgba(245,158,11,0.25)]">
                     <TeamCrest
                       name={winningOrLeadingTeam.name}
                       logoUrl={winningOrLeadingTeam.logoUrl}
-                      className="size-11 sm:size-12 shrink-0"
+                      className="size-14 sm:size-18 shrink-0 drop-shadow-lg"
                     />
-                    <div className="min-w-0">
-                      <span className="block text-[9px] font-black uppercase tracking-wider text-amber-400">
+                    <div className="min-w-0 flex-1">
+                      <span className="inline-block rounded-md bg-amber-500/20 border border-amber-500/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 font-mono">
                         🔥 LEADING BIDDER
                       </span>
-                      <h4 className="text-sm sm:text-base font-black uppercase text-white truncate">
+                      <h4 className="text-xl sm:text-2xl lg:text-3xl font-black uppercase text-white truncate drop-shadow mt-1 leading-tight">
                         {winningOrLeadingTeam.name}
                       </h4>
                     </div>
                   </div>
                 ) : (
-                  <div className="my-3 rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-2.5 text-center text-xs text-slate-400 italic">
+                  <div className="my-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-center text-xs text-slate-400 italic">
                     Waiting for Opening Bid
                   </div>
                 )}
 
-                {/* Base Price & Current Bid (Timing Cancelled) */}
-                <div className="grid grid-cols-2 gap-3 my-2.5 p-3 rounded-2xl border border-white/10 bg-white/[0.03]">
-                  <div>
+                {/* Base Price & Current Bid (Current Bid Font Doubled) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-2.5 p-3 sm:p-3.5 rounded-2xl border border-white/10 bg-white/[0.03]">
+                  <div className="flex flex-col justify-center">
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       BASE PRICE
                     </span>
@@ -1258,9 +1264,9 @@ export default function LiveAuctionArena() {
                       {activePlayer?.basePrice?.toLocaleString()} PTS
                     </strong>
                   </div>
-                  <div className="border-l border-white/10 pl-3">
+                  <div className="sm:border-l border-white/10 sm:pl-3 pt-2 sm:pt-0 border-t sm:border-t-0 flex flex-col justify-center">
                     <div className="flex items-center justify-between">
-                      <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                      <span className="block text-[10px] font-black uppercase tracking-wider text-amber-400">
                         CURRENT BID
                       </span>
                       {state.currentBid > 0 && (
@@ -1269,8 +1275,9 @@ export default function LiveAuctionArena() {
                         </span>
                       )}
                     </div>
-                    <strong className="block font-mono text-xl sm:text-2xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] mt-0.5 leading-none">
-                      {activePlayer?.currentBid?.toLocaleString()} PTS
+                    <strong className="block font-mono text-3xl sm:text-4xl lg:text-5xl font-black text-amber-400 drop-shadow-[0_0_20px_rgba(245,158,11,0.6)] mt-1 leading-none tracking-tight">
+                      {activePlayer?.currentBid?.toLocaleString()}{" "}
+                      <span className="text-sm sm:text-base lg:text-lg font-bold text-amber-300/80">PTS</span>
                     </strong>
                   </div>
                 </div>
@@ -1360,53 +1367,39 @@ export default function LiveAuctionArena() {
 
               </div>
 
-              {/* Card 2: Team Remaining Balances */}
+              {/* Card 2: Live Bid History Card (Moved to Right Bottom) */}
               <div className="relative rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-br from-[#0c1626]/90 via-[#0a1220]/85 to-[#070d18]/95 backdrop-blur-2xl p-4 sm:p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85)]">
                 <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-white/10">
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-200 flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
-                    <span>TEAM REMAINING PURSES {teamsList.length > 0 && `(${teamsList.length})`}</span>
+                    <FaGavel className="text-amber-400 text-xs" />
+                    LIVE BID HISTORY
                   </h3>
-                  <span className="text-[10px] font-mono text-slate-400">Live Balances • Click to View Squad</span>
+                  <span className="text-[10px] font-mono text-slate-400">Recent Bids</span>
                 </div>
 
-                {teamsList.length > 0 ? (
-                  <div className="space-y-2">
-                    {teamsList.map((team, idx) => {
-                      const isMyTeam = liveBiddingTeam && (liveBiddingTeam._id === team._id || liveBiddingTeam._id?.toString() === team._id?.toString());
-                      return (
-                        <div
-                          key={team._id || idx}
-                          onClick={() => setInspectTeamSquad(team)}
-                          className={`flex items-center justify-between p-2.5 rounded-xl border ${team.borderClass || "border-white/10"} ${isMyTeam ? "ring-2 ring-amber-400/60 bg-amber-500/10" : `bg-gradient-to-r ${team.cardBg || "from-[#0a1220] to-[#050914]"}`} hover:border-amber-500/60 transition-all shadow-sm cursor-pointer group`}
-                          title="Click to view team's purchased squad"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <TeamCrest name={team.name} logoUrl={team.logoUrl} className="size-8 shrink-0 group-hover:scale-105 transition-transform" />
-                            <div className="min-w-0">
-                              <span className="font-extrabold text-xs text-white uppercase truncate flex items-center gap-1.5 leading-tight">
-                                {team.name}
-                                {isMyTeam && (
-                                  <span className="text-[9px] font-black text-amber-400 bg-amber-500/20 px-1 rounded">YOU</span>
-                                )}
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-mono block mt-0.5 group-hover:text-amber-300 transition-colors">
-                                {team.playerCount || (team.players ? team.players.length : 0)} players bought • View squad ➔
-                              </span>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0 ml-2">
-                            <span className="block font-mono text-xs sm:text-sm font-black text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.3)]">
-                              {team.pointsRemaining?.toLocaleString()} PTS
-                            </span>
-                          </div>
+                {bidHistory.length > 0 ? (
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    {bidHistory.map((item, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-white/[0.02] border border-white/5 hover:border-amber-500/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="size-2 rounded-full bg-amber-400 shrink-0 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+                          <span className="truncate text-slate-200">
+                            <strong className="text-amber-400 font-bold">{item.teamName}</strong> bid{" "}
+                            <span className="text-white font-bold font-mono">{item.amount?.toLocaleString()} PTS</span>
+                          </span>
                         </div>
-                      );
-                    })}
+                        <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-1">
+                          ({item.timeAgo})
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="py-6 text-center text-xs text-slate-500 italic">
-                    No teams registered yet.
+                    No bids placed yet for this player.
                   </div>
                 )}
               </div>
@@ -1426,10 +1419,10 @@ export default function LiveAuctionArena() {
             />
           )}
 
-          {/* Bottom Organizer Crest Branding */}
-          <div className="py-4 border-t border-white/10 flex items-center justify-center gap-3 text-xs text-slate-400">
-            <span>Organized with pride by:</span>
+          {/* Bottom Organizer Branding */}
+          <div className="py-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
             <div className="flex items-center gap-2">
+              <span>Organized with pride by:</span>
               <Image
                 src="/addyanta-14-logo.png"
                 alt="Addyanta-14"
@@ -1437,8 +1430,8 @@ export default function LiveAuctionArena() {
                 height={38}
                 className="h-6 sm:h-7 w-auto object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
               />
+              <span>• Faculty of ESDM, PSTU</span>
             </div>
-            <span>• Faculty of ESDM, PSTU</span>
           </div>
 
         </main>
@@ -1606,16 +1599,20 @@ export default function LiveAuctionArena() {
           />
         )}
 
-      {/* Floating Quick Fullscreen Toggle Button */}
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-[#0A0F1D]/90 px-3.5 py-1.5 text-xs font-black uppercase text-amber-400 hover:bg-amber-500/20 hover:scale-105 shadow-[0_4px_20px_rgba(0,0,0,0.8)] backdrop-blur-md transition-all cursor-pointer"
-        title={isFullscreen ? "Exit Fullscreen (Press F or Esc)" : "Enter Fullscreen (Press F)"}
-      >
-        {isFullscreen ? <FaCompress className="text-xs" /> : <FaExpand className="text-xs" />}
-        <span>{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
-      </button>
+      {/* Floating Bottom Right Controls: Fullscreen Toggle & Developed by CodeMolecule */}
+      <div className="fixed bottom-3 right-3 sm:bottom-4 sm:right-4 z-40 flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-[#0A0F1D]/90 px-3 py-1.5 text-xs font-black uppercase text-amber-400 hover:bg-amber-500/20 hover:scale-105 shadow-[0_4px_20px_rgba(0,0,0,0.8)] backdrop-blur-md transition-all cursor-pointer"
+          title={isFullscreen ? "Exit Fullscreen (Press F or Esc)" : "Enter Fullscreen (Press F)"}
+        >
+          {isFullscreen ? <FaCompress className="text-xs" /> : <FaExpand className="text-xs" />}
+          <span className="hidden xs:inline">{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
+        </button>
+
+        <CodeMoleculeBrand variant="badge" />
+      </div>
 
     </div>
   );

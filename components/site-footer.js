@@ -15,6 +15,7 @@ import {
   FaCalendarDays,
   FaShieldHalved,
 } from "react-icons/fa6";
+import CodeMoleculeBrand from "./code-molecule-brand";
 
 const container =
   "mx-auto w-[min(1450px,calc(100%-24px))] sm:w-[min(1450px,calc(100%-36px))] min-[781px]:w-[min(1450px,calc(100%-64px))]";
@@ -215,13 +216,11 @@ export default function SiteFooter() {
 
       {/* Bottom Legal / Copyright Bar */}
       <div className="border-t border-white/10 bg-[#05070D] py-4 text-xs font-medium text-slate-400">
-        <div className={`${container} flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-between`}>
+        <div className={`${container} flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-between`}>
           <span>
-            © 2027 ESDM Premier League (EPL). All rights reserved.
+            © 2027 ESDM Premier League (EPL). All rights reserved. • Organized by <strong className="text-amber-400">Addyanta-14</strong>
           </span>
-          <span className="text-slate-300">
-            Faculty of Environmental Science and Disaster Management, PSTU • Organized by <strong className="text-amber-400">Addyanta-14</strong>
-          </span>
+          <CodeMoleculeBrand variant="inline" />
         </div>
       </div>
     </footer>

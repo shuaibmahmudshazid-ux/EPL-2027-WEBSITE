@@ -231,15 +231,11 @@ export default function FullscreenSoldPlayerCard({
             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/85 via-transparent to-transparent pointer-events-none" />
           </div>
 
-          {/* Micro Player ID / Session Bar */}
-          <div className="mt-3 w-full text-center text-[10px] sm:text-xs font-mono text-slate-400">
-            <span>ID: <b className="text-slate-200">{player.playerId || "—"}</b></span>
-            {player.session && (
-              <span> • Session: <b className="text-slate-200">{player.session}</b></span>
-            )}
-            {player.registrationNumber && (
-              <span> • Reg: <b className="text-slate-200">{player.registrationNumber}</b></span>
-            )}
+          {/* Category Bar below photo */}
+          <div className="mt-3 w-full text-center">
+            <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-amber-300">
+              {roleText}
+            </span>
           </div>
         </div>
 
