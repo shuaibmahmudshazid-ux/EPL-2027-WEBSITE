@@ -55,6 +55,10 @@ const AdminLiveAuctionView = () => {
   const [showStartModal, setShowStartModal] = useState(false);
   const [customPlayersQueue, setCustomPlayersQueue] = useState([]);
 
+  // 2 Unsold Players Lottery Modal state
+  const [showLotteryModal, setShowLotteryModal] = useState(false);
+  const [lotteryAssignments, setLotteryAssignments] = useState([]);
+
   // Stop & Reset Modals state
   const [showStopModal, setShowStopModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -485,6 +489,56 @@ const AdminLiveAuctionView = () => {
                   </div>
                 </div>
               )}
+
+              {/* 2 UNSOLD PLAYERS SPECIAL RULE BANNER (Re-Auction or Lottery) */}
+              {currentQueue.filter((p) => p.status === "unsold").length === 2 &&
+                currentQueue.filter((p) => p.status === "sold").length === 3 && (
+                  <div className="mb-4 rounded-xl border-2 border-purple-400/80 bg-gradient-to-r from-purple-950/95 via-indigo-950/90 to-purple-950/95 p-4 text-xs shadow-2xl">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 font-black text-purple-200 text-sm">
+                        <span className="size-2.5 rounded-full bg-purple-400 animate-ping" />
+                        <span>🎲 2 Players Unsold in Tier Rule Active!</span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => sendControlAction("REAUCTION_UNSOLD_PLAYERS")}
+                          disabled={submittingAction}
+                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-3.5 py-1.5 text-xs font-black text-white hover:brightness-110 shadow-md cursor-pointer transition-all"
+                        >
+                          <FaRotateRight className="text-[10px]" />
+                          Re-Auction 2 Unsold Players Now
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Prepare remaining 2 teams and 2 unsold players for lottery
+                            const unsold = currentQueue.filter((p) => p.status === "unsold");
+                            const soldTeamIds = new Set(
+                              currentQueue.filter((p) => p.status === "sold" && p.soldToTeam).map((p) => p.soldToTeam.toString())
+                            );
+                            const remTeams = teams.filter((t) => !soldTeamIds.has(t._id.toString()));
+                            setLotteryAssignments([
+                              { playerId: unsold[0]?.player, teamId: remTeams[0]?._id || "" },
+                              { playerId: unsold[1]?.player, teamId: remTeams[1]?._id || "" },
+                            ]);
+                            setShowLotteryModal(true);
+                          }}
+                          disabled={submittingAction}
+                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-3.5 py-1.5 text-xs font-black text-slate-950 hover:brightness-110 shadow-md cursor-pointer transition-all"
+                        >
+                          <FaCoins className="text-[10px]" />
+                          Execute Team Lottery Draw 🎲
+                        </button>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-purple-200/90 leading-relaxed">
+                      Tournament Rule: The 2 unsold players can be auctioned again. If they still remain unsold, a lottery takes place between the 2 remaining teams with price = <b>((Player 1 + Player 2 + Player 3) / 3)</b>.
+                    </p>
+                  </div>
+                )}
 
               {/* 5TH / REMAINING PLAYER SPECIAL RULE BANNER */}
               {((isFifthPlayer && currentPlayer?.status !== "sold") ||
@@ -1388,6 +1442,167 @@ const AdminLiveAuctionView = () => {
                 className="rounded border border-white/20 px-3 py-1.5 text-xs text-[#ccd4d8] hover:bg-white/10 cursor-pointer"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LOTTERY DRAW MODAL FOR 2 REMAINING UNSOLD PLAYERS */}
+      {showLotteryModal && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/85 p-4 backdrop-blur-md"
+          onClick={() => setShowLotteryModal(false)}
+        >
+          <div
+            className="w-full max-w-[560px] rounded-2xl border-2 border-purple-500/70 bg-[#061224] p-6 shadow-2xl text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="size-9 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 font-bold">
+                  🎲
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase text-white">
+                    2-Player Lottery Draw System
+                  </h3>
+                  <p className="text-[11px] text-purple-300">
+                    Remaining Unsold Players &amp; Remaining Teams
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="text-slate-400 hover:text-white"
+                onClick={() => setShowLotteryModal(false)}
+              >
+                <FaXmark />
+              </button>
+            </div>
+
+            <div className="mb-4 rounded-xl border border-purple-400/30 bg-purple-950/40 p-3.5 text-xs text-purple-200">
+              <p className="font-bold text-white mb-1">Lottery Price Rule:</p>
+              <p className="font-mono text-purple-300">
+                Price = ((Player 1 + Player 2 + Player 3) / 3) ={" "}
+                <b className="text-amber-300 text-sm">
+                  ৳ {(() => {
+                    const sold = currentQueue.filter((p) => p.status === "sold" && p.soldPrice > 0);
+                    const prices = sold.map((p) => p.soldPrice);
+                    if (prices.length >= 3) {
+                      return Math.round((prices[0] + prices[1] + prices[2]) / 3).toLocaleString();
+                    }
+                    if (prices.length > 0) {
+                      return Math.round(prices.reduce((a, b) => a + b, 0) / prices.length).toLocaleString();
+                    }
+                    return (state.tierBasePrice || 500).toLocaleString();
+                  })()} PTS
+                </b>
+              </p>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Both remaining teams will acquire their lottery player at this exact calculated price.
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black uppercase text-slate-300">
+                  Assign Players to Remaining Teams:
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Random shuffle lottery
+                    if (lotteryAssignments.length === 2) {
+                      setLotteryAssignments([
+                        { playerId: lotteryAssignments[0].playerId, teamId: lotteryAssignments[1].teamId },
+                        { playerId: lotteryAssignments[1].playerId, teamId: lotteryAssignments[0].teamId },
+                      ]);
+                    }
+                  }}
+                  className="text-[11px] text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+                >
+                  <FaRotateRight className="text-[10px]" />
+                  Shuffle Teams
+                </button>
+              </div>
+
+              {lotteryAssignments.map((a, idx) => {
+                const playerObj = currentQueue.find(
+                  (p) => (p.player?.toString() || p._id?.toString()) === a.playerId?.toString()
+                );
+                const soldTeamIds = new Set(
+                  currentQueue.filter((p) => p.status === "sold" && p.soldToTeam).map((p) => p.soldToTeam.toString())
+                );
+                const eligibleTeams = teams.filter((t) => !soldTeamIds.has(t._id.toString()));
+
+                return (
+                  <div
+                    key={a.playerId || idx}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#020b18] p-3 text-xs"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="grid size-6 place-items-center rounded bg-purple-500/20 text-purple-300 font-bold">
+                        #{idx + 1}
+                      </span>
+                      <div>
+                        <p className="font-bold text-white">{playerObj?.fullName || "Unsold Player"}</p>
+                        <p className="text-[10px] text-slate-400">ID: {playerObj?.playerId}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-slate-400">➔ Goes to:</span>
+                      <select
+                        value={a.teamId}
+                        onChange={(e) => {
+                          const newAssignments = [...lotteryAssignments];
+                          newAssignments[idx].teamId = e.target.value;
+                          setLotteryAssignments(newAssignments);
+                        }}
+                        className="rounded-lg border border-purple-500/40 bg-[#061e38] px-3 py-1.5 text-xs font-bold text-white outline-none cursor-pointer"
+                      >
+                        <option value="">-- Select Team --</option>
+                        {eligibleTeams.map((t) => (
+                          <option key={t._id} value={t._id}>
+                            {t.name} (৳ {t.pointsRemaining?.toLocaleString()} left)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end gap-2.5 border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowLotteryModal(false)}
+                className="rounded-xl border border-white/20 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-white/10 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (lotteryAssignments.some((a) => !a.teamId)) {
+                    alert("Please assign both remaining teams to the players.");
+                    return;
+                  }
+                  if (lotteryAssignments[0].teamId === lotteryAssignments[1].teamId) {
+                    alert("Both players cannot go to the same team. Please select two different remaining teams.");
+                    return;
+                  }
+                  await sendControlAction("LOTTERY_ASSIGN_REMAINING", {
+                    teamAssignments: lotteryAssignments,
+                  });
+                  setShowLotteryModal(false);
+                }}
+                disabled={submittingAction}
+                className="rounded-xl bg-gradient-to-r from-purple-600 via-indigo-500 to-purple-600 px-5 py-2 text-xs font-black uppercase text-white hover:brightness-110 shadow-lg cursor-pointer"
+              >
+                Confirm &amp; Execute Lottery ✓
               </button>
             </div>
           </div>

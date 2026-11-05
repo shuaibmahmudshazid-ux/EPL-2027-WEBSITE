@@ -4,7 +4,10 @@ import AuctionTier from "../../../../models/auctionTier";
 import Player from "../../../../models/player";
 import Team from "../../../../models/team";
 import { getSession } from "../../../../lib/adminAuth";
-import { calculateFifthPlayerBasePrice } from "../../../../lib/auctionRules";
+import {
+  calculateFifthPlayerBasePrice,
+  calculateLotteryPlayerPrice,
+} from "../../../../lib/auctionRules";
 
 export const runtime = "nodejs";
 
@@ -574,6 +577,182 @@ export const POST = async (request) => {
           teamName: remainingTeam.name,
           price: avg,
         },
+      });
+    }
+
+    // ========================================================
+    // RE-AUCTION UNSOLD PLAYERS IN CURRENT TIER
+    // ========================================================
+    if (action === "REAUCTION_UNSOLD_PLAYERS") {
+      const unsoldPlayers = (state.players || []).filter((p) => p.status === "unsold");
+      if (unsoldPlayers.length === 0) {
+        return Response.json(
+          { error: "No unsold players currently in this tier queue to re-auction." },
+          { status: 400 }
+        );
+      }
+
+      // Reset unsold players to upcoming in queue and reset in DB
+      for (const p of unsoldPlayers) {
+        p.status = "upcoming";
+        p.soldPrice = null;
+        p.soldToTeam = null;
+        p.soldToTeamName = null;
+        await Player.findByIdAndUpdate(p.player, {
+          auctionStatus: "upcoming",
+          team: null,
+          soldPrice: null,
+        });
+      }
+
+      // Find the first reset unsold player's index
+      const firstUnsoldIdx = (state.players || []).findIndex(
+        (p) => unsoldPlayers.some((up) => up.player.toString() === p.player.toString())
+      );
+
+      state.currentPlayerIndex = firstUnsoldIdx !== -1 ? firstUnsoldIdx : 0;
+      state.players[state.currentPlayerIndex].status = "in_auction";
+      state.status = "in_progress";
+      state.hammerStatus = "waiting";
+      state.currentBid = 0;
+      state.currentBidderTeam = null;
+      state.currentBidderTeamName = null;
+      state.currentBidderTeamLogo = null;
+      state.bidHistory = [];
+      state.timerEndAt = null;
+
+      await state.save();
+
+      return Response.json({
+        success: true,
+        message: `${unsoldPlayers.length} unsold player(s) returned to live auction round for bidding!`,
+        state,
+      });
+    }
+
+    // ========================================================
+    // LOTTERY ASSIGNMENT FOR 2 REMAINING UNSOLD PLAYERS
+    // Rule: price = Math.round((Player 1 + Player 2 + Player 3) / 3)
+    // Remaining 2 teams receive the 2 players via lottery.
+    // ========================================================
+    if (action === "LOTTERY_ASSIGN_REMAINING") {
+      const unsoldPlayers = (state.players || []).filter(
+        (p) => p.status === "unsold" || (p.status !== "sold" && p.player)
+      );
+
+      if (unsoldPlayers.length !== 2) {
+        return Response.json(
+          {
+            error: `Lottery rule applies when exactly 2 players remain unsold (found ${unsoldPlayers.length}).`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const soldPlayersInTier = (state.players || []).filter(
+        (p) => p.status === "sold" && p.soldToTeam
+      );
+      const soldPrices = soldPlayersInTier
+        .map((p) => p.soldPrice)
+        .filter((price) => typeof price === "number" && price > 0);
+
+      // Rule: price = ((Player 1 + Player 2 + Player 3) / 3)
+      const lotteryPrice = calculateLotteryPlayerPrice(
+        soldPrices,
+        state.tierBasePrice || 500
+      );
+
+      const soldTeamIds = new Set(soldPlayersInTier.map((p) => p.soldToTeam.toString()));
+      const allActiveTeams = await Team.find({ status: "active" });
+      const remainingTeams = allActiveTeams.filter(
+        (t) => !soldTeamIds.has(t._id.toString())
+      );
+
+      if (remainingTeams.length < 2) {
+        return Response.json(
+          {
+            error: `Need 2 remaining teams without a player in this tier (found ${remainingTeams.length}).`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Allow admin-specified team pairing, or shuffle randomly for transparent lottery
+      const body = await request.clone().json().catch(() => ({}));
+      let assignments = [];
+
+      if (
+        Array.isArray(body?.teamAssignments) &&
+        body.teamAssignments.length === 2 &&
+        body.teamAssignments[0].playerId &&
+        body.teamAssignments[0].teamId
+      ) {
+        // Manual assignment from lottery draw modal
+        assignments = body.teamAssignments.map((a) => {
+          const playerObj = unsoldPlayers.find(
+            (p) => p.player.toString() === a.playerId.toString()
+          );
+          const teamObj = remainingTeams.find(
+            (t) => t._id.toString() === a.teamId.toString()
+          );
+          return { playerObj, teamObj };
+        });
+      } else {
+        // Random lottery draw shuffle
+        const shuffledTeams = [...remainingTeams].sort(() => Math.random() - 0.5);
+        assignments = [
+          { playerObj: unsoldPlayers[0], teamObj: shuffledTeams[0] },
+          { playerObj: unsoldPlayers[1], teamObj: shuffledTeams[1] },
+        ];
+      }
+
+      // Commit the 2 lottery sales to database and queue
+      for (const { playerObj, teamObj } of assignments) {
+        if (!playerObj || !teamObj) continue;
+
+        playerObj.status = "sold";
+        playerObj.soldPrice = lotteryPrice;
+        playerObj.soldToTeam = teamObj._id;
+        playerObj.soldToTeamName = teamObj.name;
+
+        await Player.findByIdAndUpdate(playerObj.player, {
+          team: teamObj._id,
+          soldPrice: lotteryPrice,
+          auctionStatus: "sold",
+        });
+
+        await Team.findByIdAndUpdate(teamObj._id, {
+          $addToSet: { players: playerObj.player },
+          $inc: { pointsSpent: lotteryPrice },
+        });
+      }
+
+      // Focus display on the second lottery winner on stage as sold
+      const lastAssigned = assignments[1];
+      const targetIdx = (state.players || []).findIndex(
+        (p) => p.player.toString() === lastAssigned.playerObj.player.toString()
+      );
+
+      state.currentPlayerIndex = targetIdx !== -1 ? targetIdx : 4;
+      state.currentBid = lotteryPrice;
+      state.currentBidderTeam = lastAssigned.teamObj._id;
+      state.currentBidderTeamName = lastAssigned.teamObj.name;
+      state.currentBidderTeamLogo = lastAssigned.teamObj.logoUrl || null;
+      state.hammerStatus = "sold";
+      state.status = "in_progress";
+      state.timerEndAt = null;
+
+      await state.save();
+
+      return Response.json({
+        success: true,
+        message: `Lottery completed! ${assignments[0].playerObj.fullName} ➔ ${assignments[0].teamObj.name} and ${assignments[1].playerObj.fullName} ➔ ${assignments[1].teamObj.name} for ৳ ${lotteryPrice.toLocaleString()} each! ((P1+P2+P3)/3 rule).`,
+        state,
+        lotteryResults: assignments.map((a) => ({
+          playerName: a.playerObj.fullName,
+          teamName: a.teamObj.name,
+          price: lotteryPrice,
+        })),
       });
     }
 
