@@ -41,9 +41,12 @@ export const POST = async (request) => {
       if (Array.isArray(selectedPlayerIds) && selectedPlayerIds.length > 0) {
         tierPlayers = await Player.find({ _id: { $in: selectedPlayerIds } }).limit(5);
       } else {
-        // Pick players assigned to this tier or category
+        // Pick players strictly assigned to this tier
         tierPlayers = await Player.find({
-          $or: [{ auctionTier: tier._id }, { tier: tier.name }],
+          $or: [
+            { auctionTier: tier._id },
+            { auctionTier: null, tier: tier.name, categories: tier.category },
+          ],
         })
           .sort({ auctionOrder: 1, createdAt: 1 })
           .limit(5);
@@ -54,6 +57,8 @@ export const POST = async (request) => {
           const existingIds = tierPlayers.map((p) => p._id);
           const morePlayers = await Player.find({
             _id: { $nin: existingIds },
+            auctionTier: null,
+            tier: null,
             categories: tier.category,
           }).limit(needed);
           tierPlayers = [...tierPlayers, ...morePlayers];

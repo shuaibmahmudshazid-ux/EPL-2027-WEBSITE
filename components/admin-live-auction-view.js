@@ -231,16 +231,26 @@ const AdminLiveAuctionView = () => {
     const targetTier = tiers.find((t) => t._id === tierId);
     if (!targetTier) return;
 
-    // Pick players assigned to this tier, or in category
-    const tierCategoryPlayers = allPlayers.filter(
-      (p) =>
-        p.auctionTier?._id === tierId ||
-        p.tier === targetTier.name ||
-        (p.categories || []).includes(targetTier.category)
-    );
+    // Pick players strictly assigned to this tier
+    const tierPlayers = allPlayers.filter((p) => {
+      // 1. Explicit auctionTier match (populated object or ID string)
+      if (p.auctionTier) {
+        const pTierId =
+          typeof p.auctionTier === "object" ? p.auctionTier._id : p.auctionTier;
+        if (String(pTierId) === String(tierId)) return true;
+        return false; // Assigned to another tier, so DO NOT include
+      }
+      // 2. Fallback only if unassigned by ID: must match BOTH tier name and category
+      const tierMatches =
+        p.tier && p.tier.toLowerCase() === targetTier.name.toLowerCase();
+      const categoryMatches = (p.categories || [])
+        .map((c) => c.toLowerCase())
+        .includes(targetTier.category.toLowerCase());
+      return Boolean(tierMatches && categoryMatches);
+    });
 
     // Limit to 5 players
-    setCustomPlayersQueue(tierCategoryPlayers.slice(0, 5).map((p) => p._id));
+    setCustomPlayersQueue(tierPlayers.slice(0, 5).map((p) => p._id));
     setShowStartModal(true);
   };
 
