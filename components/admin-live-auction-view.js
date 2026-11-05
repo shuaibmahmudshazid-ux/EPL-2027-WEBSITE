@@ -486,15 +486,17 @@ const AdminLiveAuctionView = () => {
                 </div>
               )}
 
-              {/* 5TH PLAYER SPECIAL RULE BANNER */}
-              {isFifthPlayer && (
+              {/* 5TH / REMAINING PLAYER SPECIAL RULE BANNER */}
+              {((isFifthPlayer && currentPlayer?.status !== "sold") ||
+                (currentQueue.filter((p) => p.status === "sold").length === 4 &&
+                  currentQueue.some((p) => p.status === "unsold" || p.status === "upcoming"))) && (
                 <div className="mb-4 rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-950/90 via-amber-900/60 to-amber-950/90 p-3.5 text-xs shadow-lg">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2 font-black text-amber-300">
                       <FaCoins className="text-amber-400 text-sm" />
-                      5th Player Automatic Rule Active!
+                      5th / Remaining Player Rule Active!
                     </div>
-                    {currentPlayer?.status !== "sold" && (
+                    {currentQueue.filter((p) => p.status === "sold").length < 5 && (
                       <button
                         type="button"
                         onClick={() => sendControlAction("AUTO_ASSIGN_5TH_PLAYER")}
@@ -507,13 +509,7 @@ const AdminLiveAuctionView = () => {
                     )}
                   </div>
                   <p className="mt-1.5 text-[#ffd37f]">
-                    Base price is calculated as the average of <b>Player 3</b> (৳{" "}
-                    {state.player3SoldPrice?.toLocaleString() || "Unsold"}) and <b>Player 4</b> (৳{" "}
-                    {state.player4SoldPrice?.toLocaleString() || "Unsold"}) ={" "}
-                    <b className="text-white text-sm underline decoration-amber-400 underline-offset-2">
-                      ৳ {state.fifthPlayerCalculatedBasePrice?.toLocaleString() || 500}
-                    </b>
-                    . The 5th player automatically goes to the remaining 5th team.
+                    4 teams have acquired players in this tier. The remaining unsold player automatically goes to the remaining 5th team at the calculated average price (৳ {state.fifthPlayerCalculatedBasePrice?.toLocaleString() || 500}).
                   </p>
                 </div>
               )}
