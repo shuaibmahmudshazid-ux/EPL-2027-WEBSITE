@@ -1254,30 +1254,34 @@ export default function LiveAuctionArena() {
                   </div>
                 )}
 
-                {/* Base Price & Current Bid (Current Bid Font Doubled) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-2.5 p-3 sm:p-3.5 rounded-2xl border border-white/10 bg-white/[0.03]">
-                  <div className="flex flex-col justify-center">
+                {/* Base Price & Current Bid (Dedicated Box for Current Bidding with Triple Font Size) */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 my-2.5 items-stretch">
+                  {/* Base Price Box */}
+                  <div className="sm:col-span-4 flex flex-col justify-center p-3 sm:p-3.5 rounded-2xl border border-white/10 bg-white/[0.03]">
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       BASE PRICE
                     </span>
-                    <strong className="block font-mono text-sm sm:text-base font-bold text-slate-200 mt-0.5">
+                    <strong className="block font-mono text-base sm:text-lg font-bold text-slate-200 mt-1">
                       {activePlayer?.basePrice?.toLocaleString()} PTS
                     </strong>
                   </div>
-                  <div className="sm:border-l border-white/10 sm:pl-3 pt-2 sm:pt-0 border-t sm:border-t-0 flex flex-col justify-center">
+
+                  {/* Dedicated Current Bidding Box with Triple Font Size */}
+                  <div className="sm:col-span-8 flex flex-col justify-center p-3.5 sm:p-4 rounded-2xl border-2 border-amber-500/60 bg-gradient-to-br from-amber-500/15 via-[#0f172a]/90 to-black shadow-[0_0_30px_rgba(245,158,11,0.25)]">
                     <div className="flex items-center justify-between">
-                      <span className="block text-[10px] font-black uppercase tracking-wider text-amber-400">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-amber-400">
+                        <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
                         CURRENT BID
                       </span>
                       {state.currentBid > 0 && (
-                        <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 rounded px-1.5 py-0.5">
+                        <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 rounded-md px-2 py-0.5 font-mono">
                           +৳ {getBidIncrement(state.currentBid).toLocaleString()}
                         </span>
                       )}
                     </div>
-                    <strong className="block font-mono text-3xl sm:text-4xl lg:text-5xl font-black text-amber-400 drop-shadow-[0_0_20px_rgba(245,158,11,0.6)] mt-1 leading-none tracking-tight">
+                    <strong className="block font-mono text-5xl sm:text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.7)] mt-1.5 leading-none tracking-tight">
                       {activePlayer?.currentBid?.toLocaleString()}{" "}
-                      <span className="text-sm sm:text-base lg:text-lg font-bold text-amber-300/80">PTS</span>
+                      <span className="text-xl sm:text-2xl md:text-3xl font-extrabold text-amber-300/80">PTS</span>
                     </strong>
                   </div>
                 </div>
