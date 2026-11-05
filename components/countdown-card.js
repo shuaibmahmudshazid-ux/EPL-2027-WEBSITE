@@ -40,11 +40,21 @@ export const getTargetDate = () => {
 };
 
 /**
- * Computes remaining time and live status.
+ * Calculates remaining time for a given target timestamp or Date.
  */
-export const getTimeLeft = () => {
-  const target = getTargetDate();
-  const diff = target.getTime() - Date.now();
+export const getTimeLeft = (targetInput) => {
+  let targetTime = null;
+  if (targetInput instanceof Date) {
+    targetTime = targetInput.getTime();
+  } else if (typeof targetInput === "number") {
+    targetTime = targetInput;
+  } else if (typeof targetInput === "string") {
+    targetTime = new Date(targetInput).getTime();
+  } else {
+    targetTime = getTargetDate().getTime();
+  }
+
+  const diff = targetTime - Date.now();
   const totalSeconds = Math.max(0, Math.floor(diff / 1000));
   return {
     days: Math.floor(totalSeconds / 86400),
@@ -53,8 +63,40 @@ export const getTimeLeft = () => {
     seconds: totalSeconds % 60,
     totalSeconds,
     isLive: totalSeconds <= 0,
-    targetDate: target,
+    targetDate: new Date(targetTime),
   };
+};
+
+/**
+ * Formats a Date object as a human-readable BD time string.
+ */
+export const formatTargetBDTime = (dateInput) => {
+  if (!dateInput) return "Today at 5:30 PM BD Time";
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return "Today at 5:30 PM BD Time";
+
+  // Shift to BD time (+6 hours)
+  const bdDate = new Date(date.getTime() + 6 * 3600 * 1000);
+  const now = new Date();
+  const bdNow = new Date(now.getTime() + 6 * 3600 * 1000);
+
+  const isSameDay =
+    bdDate.getUTCDate() === bdNow.getUTCDate() &&
+    bdDate.getUTCMonth() === bdNow.getUTCMonth() &&
+    bdDate.getUTCFullYear() === bdNow.getUTCFullYear();
+
+  const h = bdDate.getUTCHours();
+  const m = String(bdDate.getUTCMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  const timePart = `${h12}:${m} ${ampm} BD Time`;
+
+  if (isSameDay) {
+    return `Today at ${timePart}`;
+  }
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const datePart = `${bdDate.getUTCDate()} ${months[bdDate.getUTCMonth()]}`;
+  return `${datePart} at ${timePart}`;
 };
 
 /**
@@ -94,13 +136,32 @@ const playChime = (isMuted) => {
 };
 
 export default function CountdownCard({ className = "" }) {
-  const [timeLeft, setTimeLeft] = useState(getTimeLeft);
+  const [targetTimestamp, setTargetTimestamp] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(() => getTimeLeft());
   const [bdTimeString, setBdTimeString] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
 
   const cardRef = useRef(null);
+  const targetRef = useRef(null);
+
+  // Fetch dynamic countdown target configured by admin
+  const fetchConfig = useCallback(async () => {
+    try {
+      const res = await fetch("/api/countdown-config", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.targetTimestamp) {
+          setTargetTimestamp(data.targetTimestamp);
+          targetRef.current = data.targetTimestamp;
+          setTimeLeft(getTimeLeft(data.targetTimestamp));
+        }
+      }
+    } catch {
+      // Fallback to default
+    }
+  }, []);
 
   // Fullscreen exit handler
   const exitFullscreen = useCallback(() => {
@@ -126,23 +187,30 @@ export default function CountdownCard({ className = "" }) {
     }
   }, [isFullscreen, isMuted, exitFullscreen]);
 
-  // Initial mount timer
+  // Initial mount timer & dynamic sync
   useEffect(() => {
     const mountTimeout = setTimeout(() => {
       setMounted(true);
       setBdTimeString(getBDTimeString());
+      fetchConfig();
     }, 0);
 
     const intervalTimer = setInterval(() => {
-      setTimeLeft(getTimeLeft());
+      setTimeLeft(getTimeLeft(targetRef.current));
       setBdTimeString(getBDTimeString());
     }, 1000);
+
+    // Periodically re-sync countdown target in case admin changed it in background
+    const syncTimer = setInterval(() => {
+      fetchConfig();
+    }, 15000);
 
     return () => {
       clearTimeout(mountTimeout);
       clearInterval(intervalTimer);
+      clearInterval(syncTimer);
     };
-  }, []);
+  }, [fetchConfig]);
 
   // Sync fullscreen change events (e.g. user presses native Esc key)
   useEffect(() => {
@@ -246,7 +314,7 @@ export default function CountdownCard({ className = "" }) {
         <p className="relative z-10 text-[10px] sm:text-[11px] font-medium text-slate-400 mb-3 sm:mb-4 text-center">
           {displayTime.isLive
             ? "Official Player Auction draft is currently in progress • Arena is live!"
-            : "Official Player Auction starts today at 5:30 PM BD Time (GMT +6.00)"}
+            : `Official Player Auction starts ${formatTargetBDTime(displayTime.targetDate)} (GMT +6.00)`}
         </p>
 
         {/* Digits Display */}
@@ -453,7 +521,7 @@ export default function CountdownCard({ className = "" }) {
                 <span>
                   {displayTime.isLive
                     ? "AUCTION IS LIVE NOW • OFFICIAL DRAFT UNDERWAY"
-                    : "LIVE AUCTION COUNTDOWN • TODAY AT 5:30 PM BD TIME"}
+                    : `LIVE AUCTION COUNTDOWN • ${formatTargetBDTime(displayTime.targetDate).toUpperCase()}`}
                 </span>
               </div>
 
@@ -484,7 +552,7 @@ export default function CountdownCard({ className = "" }) {
                   <>
                     Official Player Auction draft begins{" "}
                     <strong className="text-amber-300 font-black">
-                      Today at 5:30 PM BD Time (GMT +6.00)
+                      {formatTargetBDTime(displayTime.targetDate)} (GMT +6.00)
                     </strong>
                     . All franchise captains & draft players assemble.
                   </>

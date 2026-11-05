@@ -8,6 +8,7 @@ import {
   FaCalendarCheck,
   FaCalendarDays,
   FaChartBar,
+  FaClock,
   FaGavel,
   FaKey,
   FaLayerGroup,
@@ -31,6 +32,7 @@ import AdminTeamKeysView from "./admin-team-keys-view";
 import AdminTeamsView from "./admin-teams-view";
 import AdminGalleryView from "./admin-gallery-view";
 import AdminFixturesView from "./admin-fixtures-view";
+import AdminCountdownSettingsView from "./admin-countdown-settings-view";
 import ExportButtonGroup from "./export-button-group";
 import {
   exportPlayersToPdf,
@@ -42,6 +44,7 @@ import {
 const menu = [
   { label: "Dashboard", icon: FaChartBar },
   { label: "Live Auction", icon: FaGavel },
+  { label: "Countdown Settings", icon: FaClock },
   { label: "Auction Tiers", icon: FaLayerGroup },
   { label: "Fixtures Management", icon: FaCalendarDays },
   { label: "Teams", icon: FaUserGroup },
@@ -334,6 +337,8 @@ const AdminDashboard = () => {
         <div id="dashboard" className="mx-auto w-full max-w-[1460px] flex-1 p-5 sm:p-6">
           {activeSection === "Live Auction" ? (
             <AdminLiveAuctionView />
+          ) : activeSection === "Countdown Settings" ? (
+            <AdminCountdownSettingsView />
           ) : activeSection === "Players" ? (
             <AdminPlayersView />
           ) : activeSection === "Auction Tiers" ? (
