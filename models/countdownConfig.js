@@ -11,3 +11,4 @@ const countdownConfigSchema = new mongoose.Schema(
 );
 
 export default mongoose.models.CountdownConfig ?? mongoose.model("CountdownConfig", countdownConfigSchema);
+
